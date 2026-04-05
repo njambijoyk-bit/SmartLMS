@@ -31,6 +31,14 @@ import { AlumniPortalPage } from './pages/alumni/AlumniPortalPage';
 import { PortfolioPage } from './pages/portfolio/PortfolioPage';
 import { AdvisingPage } from './pages/advising/AdvisingPage';
 import { CompetencyPage } from './pages/competency/CompetencyPage';
+import { ExamBankPage } from './pages/exambank/ExamBankPage';
+import { IDCardsPage } from './pages/idcards/IDCardsPage';
+import { BadgesPage } from './pages/badges/BadgesPage';
+import { ResearchPage } from './pages/research/ResearchPage';
+import { PeerReviewPage } from './pages/peerreview/PeerReviewPage';
+import { EmployerPortalPage } from './pages/employer/EmployerPortalPage';
+import { RPLPage } from './pages/rpl/RPLPage';
+import { ProctoringPage } from './pages/proctoring/ProctoringPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -80,6 +88,14 @@ function AppRoutes() {
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/advising" element={<AdvisingPage />} />
         <Route path="/competency" element={<CompetencyPage />} />
+        <Route path="/exam-bank" element={<ExamBankPage />} />
+        <Route path="/id-cards" element={<IDCardsPage />} />
+        <Route path="/badges" element={<BadgesPage />} />
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/peer-review" element={<PeerReviewPage />} />
+        <Route path="/employer" element={<EmployerPortalPage />} />
+        <Route path="/rpl" element={<RPLPage />} />
+        <Route path="/proctoring" element={<ProctoringPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

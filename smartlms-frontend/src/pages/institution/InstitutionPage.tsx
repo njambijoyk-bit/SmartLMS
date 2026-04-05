@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Building2, Globe, Palette, Shield, Database,
   Server, Key, Users, Upload, CheckCircle2,
-  AlertTriangle, Settings, Mail, Clock,
+  AlertTriangle, Settings, Mail, Clock, Plus,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';

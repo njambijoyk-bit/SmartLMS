@@ -4,7 +4,8 @@ import {
   Calendar, Settings, GraduationCap, FileText, CreditCard, Shield,
   Video, Bell, ChevronLeft, ChevronRight, Zap, Library, Award,
   UserCheck, Heart, Building2, MessageCircleMore, Users2, CheckSquare,
-  FolderOpen, Target, Compass,
+  FolderOpen, Target, Compass, FileStack, BookMarked, Briefcase,
+  FileCheck, ShieldCheck, Contact, ArrowLeftRight, Medal,
 } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -37,12 +38,19 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Timetable', path: '/timetable', icon: <Calendar size={20} />, roles: ['admin', 'instructor', 'learner'] },
   { label: 'Attendance', path: '/attendance', icon: <Calendar size={20} />, roles: ['admin', 'instructor'] },
   { label: 'Library', path: '/library', icon: <Library size={20} />, roles: ['admin', 'instructor', 'learner'] },
+  { label: 'Exam Bank', path: '/exam-bank', icon: <FileStack size={20} />, roles: ['admin', 'instructor', 'learner'] },
+  { label: 'Peer Review', path: '/peer-review', icon: <ArrowLeftRight size={20} />, roles: ['admin', 'instructor', 'learner'] },
+  { label: 'Research', path: '/research', icon: <BookMarked size={20} />, roles: ['admin', 'instructor', 'learner'] },
+  { label: 'Badges', path: '/badges', icon: <Medal size={20} />, roles: ['admin', 'instructor', 'learner'] },
 
   // Student Services
   { label: 'Exam Cards', path: '/exam-cards', icon: <Shield size={20} />, roles: ['admin', 'learner'], section: 'Services' },
+  { label: 'ID Cards', path: '/id-cards', icon: <Contact size={20} />, roles: ['admin', 'learner'] },
   { label: 'Clearance', path: '/clearance', icon: <CheckSquare size={20} />, roles: ['admin', 'learner'] },
   { label: 'Certificates', path: '/certificates', icon: <Award size={20} />, roles: ['admin', 'learner', 'alumni'] },
+  { label: 'RPL', path: '/rpl', icon: <FileCheck size={20} />, roles: ['admin', 'instructor', 'learner'] },
   { label: 'Wellbeing', path: '/wellbeing', icon: <Heart size={20} />, roles: ['admin', 'learner', 'counsellor'] },
+  { label: 'Careers', path: '/employer', icon: <Briefcase size={20} />, roles: ['admin', 'learner', 'alumni'] },
 
   // Portals
   { label: 'Parent Portal', path: '/parents', icon: <Users2 size={20} />, roles: ['parent'], section: 'Portals' },
@@ -53,6 +61,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Registration', path: '/registration', icon: <UserCheck size={20} />, roles: ['admin'] },
   { label: 'Fee Management', path: '/fees', icon: <CreditCard size={20} />, roles: ['admin'] },
   { label: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} />, roles: ['admin', 'instructor'] },
+  { label: 'Proctoring', path: '/proctoring', icon: <ShieldCheck size={20} />, roles: ['admin', 'instructor'] },
   { label: 'Automation', path: '/automation', icon: <Zap size={20} />, roles: ['admin'] },
   { label: 'Institution', path: '/institution', icon: <Building2 size={20} />, roles: ['admin'] },
 
