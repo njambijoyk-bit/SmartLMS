@@ -21,7 +21,16 @@ import { FeesPage } from './pages/fees/FeesPage';
 import { ExamCardsPage } from './pages/examcards/ExamCardsPage';
 import { CertificatesPage } from './pages/certificates/CertificatesPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
+import { WellbeingPage } from './pages/wellbeing/WellbeingPage';
+import { AutomationPage } from './pages/automation/AutomationPage';
+import { InstitutionPage } from './pages/institution/InstitutionPage';
+import { DiscussionForumsPage } from './pages/forums/DiscussionForumsPage';
+import { ParentsPortalPage } from './pages/parents/ParentsPortalPage';
+import { ClearancePage } from './pages/clearance/ClearancePage';
+import { AlumniPortalPage } from './pages/alumni/AlumniPortalPage';
+import { PortfolioPage } from './pages/portfolio/PortfolioPage';
+import { AdvisingPage } from './pages/advising/AdvisingPage';
+import { CompetencyPage } from './pages/competency/CompetencyPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -61,9 +70,16 @@ function AppRoutes() {
         <Route path="/exam-cards" element={<ExamCardsPage />} />
         <Route path="/certificates" element={<CertificatesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/wellbeing" element={<PlaceholderPage />} />
-        <Route path="/automation" element={<PlaceholderPage />} />
-        <Route path="/institution" element={<PlaceholderPage />} />
+        <Route path="/wellbeing" element={<WellbeingPage />} />
+        <Route path="/automation" element={<AutomationPage />} />
+        <Route path="/institution" element={<InstitutionPage />} />
+        <Route path="/forums" element={<DiscussionForumsPage />} />
+        <Route path="/parents" element={<ParentsPortalPage />} />
+        <Route path="/clearance" element={<ClearancePage />} />
+        <Route path="/alumni" element={<AlumniPortalPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/advising" element={<AdvisingPage />} />
+        <Route path="/competency" element={<CompetencyPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
