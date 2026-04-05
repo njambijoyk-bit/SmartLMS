@@ -8,6 +8,19 @@ import { CoursesPage } from './pages/courses/CoursesPage';
 import { CourseDetailPage } from './pages/courses/CourseDetailPage';
 import { GradebookPage } from './pages/gradebook/GradebookPage';
 import { UsersPage } from './pages/users/UsersPage';
+import { AssessmentsPage } from './pages/assessments/AssessmentsPage';
+import { AnalyticsPage } from './pages/analytics/AnalyticsPage';
+import { MessagesPage } from './pages/messages/MessagesPage';
+import { TimetablePage } from './pages/timetable/TimetablePage';
+import { LibraryPage } from './pages/library/LibraryPage';
+import { LiveClassesPage } from './pages/live/LiveClassesPage';
+import { AttendancePage } from './pages/attendance/AttendancePage';
+import { NotificationsPage } from './pages/notifications/NotificationsPage';
+import { RegistrationPage } from './pages/registration/RegistrationPage';
+import { FeesPage } from './pages/fees/FeesPage';
+import { ExamCardsPage } from './pages/examcards/ExamCardsPage';
+import { CertificatesPage } from './pages/certificates/CertificatesPage';
+import { SettingsPage } from './pages/settings/SettingsPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,22 +48,22 @@ function AppRoutes() {
         <Route path="/courses/:id" element={<CourseDetailPage />} />
         <Route path="/gradebook" element={<GradebookPage />} />
         <Route path="/users" element={<UsersPage />} />
-        <Route path="/assessments" element={<PlaceholderPage />} />
-        <Route path="/live" element={<PlaceholderPage />} />
-        <Route path="/messages" element={<PlaceholderPage />} />
-        <Route path="/registration" element={<PlaceholderPage />} />
-        <Route path="/attendance" element={<PlaceholderPage />} />
-        <Route path="/fees" element={<PlaceholderPage />} />
-        <Route path="/exam-cards" element={<PlaceholderPage />} />
-        <Route path="/library" element={<PlaceholderPage />} />
-        <Route path="/timetable" element={<PlaceholderPage />} />
-        <Route path="/analytics" element={<PlaceholderPage />} />
-        <Route path="/certificates" element={<PlaceholderPage />} />
+        <Route path="/assessments" element={<AssessmentsPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/timetable" element={<TimetablePage />} />
+        <Route path="/library" element={<LibraryPage />} />
+        <Route path="/live" element={<LiveClassesPage />} />
+        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/registration" element={<RegistrationPage />} />
+        <Route path="/fees" element={<FeesPage />} />
+        <Route path="/exam-cards" element={<ExamCardsPage />} />
+        <Route path="/certificates" element={<CertificatesPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/wellbeing" element={<PlaceholderPage />} />
         <Route path="/automation" element={<PlaceholderPage />} />
         <Route path="/institution" element={<PlaceholderPage />} />
-        <Route path="/notifications" element={<PlaceholderPage />} />
-        <Route path="/settings" element={<PlaceholderPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

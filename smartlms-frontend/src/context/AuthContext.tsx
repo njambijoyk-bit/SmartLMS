@@ -21,19 +21,33 @@ const DEMO_USERS: Record<UserRole, User> = {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+function loadPersistedUser(): User | null {
+  try {
+    const raw = sessionStorage.getItem('smartlms_user');
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(loadPersistedUser);
 
   const login = useCallback((role: UserRole) => {
-    setUser(DEMO_USERS[role]);
+    const u = DEMO_USERS[role];
+    sessionStorage.setItem('smartlms_user', JSON.stringify(u));
+    setUser(u);
   }, []);
 
   const logout = useCallback(() => {
+    sessionStorage.removeItem('smartlms_user');
     setUser(null);
   }, []);
 
   const switchRole = useCallback((role: UserRole) => {
-    setUser(DEMO_USERS[role]);
+    const u = DEMO_USERS[role];
+    sessionStorage.setItem('smartlms_user', JSON.stringify(u));
+    setUser(u);
   }, []);
 
   return (

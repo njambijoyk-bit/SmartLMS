@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ClipboardCheck, Users, MessageSquare, BarChart3,
   Calendar, Settings, GraduationCap, FileText, CreditCard, Shield,
@@ -44,7 +44,6 @@ const NAV_ITEMS: NavItem[] = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
-  const location = useLocation();
 
   const visibleItems = NAV_ITEMS.filter(item => user && item.roles.includes(user.role));
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, Filter, Download, Upload, MoreHorizontal,
+  Search, Plus, Download, Upload, MoreHorizontal,
   Shield, BookOpen, GraduationCap, Eye, UserCog, Users as UsersIcon,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';

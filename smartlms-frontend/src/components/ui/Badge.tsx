@@ -4,9 +4,10 @@ interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'accent';
   size?: 'sm' | 'md';
+  className?: string;
 }
 
-export function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps) {
+export function Badge({ children, variant = 'default', size = 'sm', className }: BadgeProps) {
   return (
     <span
       className={clsx(
@@ -21,7 +22,8 @@ export function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps
           'bg-accent-50 text-accent-500': variant === 'accent',
           'px-2 py-0.5 text-xs': size === 'sm',
           'px-2.5 py-1 text-sm': size === 'md',
-        }
+        },
+        className
       )}
     >
       {children}

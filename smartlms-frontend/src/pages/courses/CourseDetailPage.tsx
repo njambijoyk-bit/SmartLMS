@@ -78,7 +78,7 @@ const typeIcon = (type: string) => {
 };
 
 export function CourseDetailPage() {
-  const { id } = useParams();
+  useParams();
   const navigate = useNavigate();
   const [expandedUnit, setExpandedUnit] = useState(2);
   const [activeTab, setActiveTab] = useState('content');

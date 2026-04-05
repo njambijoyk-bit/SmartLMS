@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search, Plus, Filter, Grid3X3, List, Users, BookOpen,
-  MoreHorizontal, Clock, ChevronRight,
+  ChevronRight,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ProgressBar } from '../../components/ui/ProgressBar';
-import { Avatar } from '../../components/ui/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import type { Course } from '../../types';
 
