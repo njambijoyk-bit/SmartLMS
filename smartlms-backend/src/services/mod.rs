@@ -33,6 +33,12 @@ pub mod ai_proctoring;
 pub mod academic;
 pub mod analytics;
 pub mod migration;
+pub mod clearance;
+pub mod timetable;
+pub mod wellbeing;
+pub mod peer_review;
+pub mod portfolio;
+pub mod research;
 
 pub use auth::{login, register, change_password, request_password_reset, reset_password};
 pub use import_::service::{import_users_from_csv, generate_csv_template};
