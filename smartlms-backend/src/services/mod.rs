@@ -30,6 +30,9 @@ pub mod security_audit;
 pub mod developer;
 pub mod proctoring;
 pub mod ai_proctoring;
+pub mod academic;
+pub mod analytics;
+pub mod migration;
 
 pub use auth::{login, register, change_password, request_password_reset, reset_password};
 pub use import_::service::{import_users_from_csv, generate_csv_template};
