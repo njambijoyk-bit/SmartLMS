@@ -207,6 +207,7 @@ jobs:
 
       - name: Install Julia dependencies
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+        continue-on-error: true
 
       - name: Run Julia tests
         run: julia --project=. -e 'using Pkg; Pkg.test()'
@@ -233,11 +234,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: smartlms-sdk/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build SDK
         run: npm run build

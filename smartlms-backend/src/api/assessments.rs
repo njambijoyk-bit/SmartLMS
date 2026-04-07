@@ -13,8 +13,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct ListAssessmentsQuery {
-    pub course_id: Option<uuid::Uuid>;
-    pub assessment_type: Option<AssessmentType>;
+    pub course_id: Option<uuid::Uuid>,
+    pub assessment_type: Option<AssessmentType>,
 }
 
 /// List question banks

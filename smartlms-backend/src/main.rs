@@ -1,9 +1,9 @@
-use std::net::SocketAddr;
-use axum::{Router, routing::get, http::StatusCode, Json};
+use axum::{http::StatusCode, routing::get, Json, Router};
 use serde_json::json;
-use tower_http::{cors::Any, trace::TraceLayer, compression::CompressionLayer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use std::net::SocketAddr;
+use tower_http::{compression::CompressionLayer, cors::Any, trace::TraceLayer};
 use tracing::info;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() {
@@ -23,9 +23,10 @@ async fn main() {
             tracing::warn!("Database not available ({}). Running without DB.", e);
             // In production this would be fatal; in dev allow startup for testing
             // For now we proceed so the server starts and routes are reachable
-            let pool = sqlx::PgPool::connect("postgres://smartlms:smartlms@localhost:5432/smartlms")
-                .await
-                .ok();
+            let pool =
+                sqlx::PgPool::connect("postgres://smartlms:smartlms@localhost:5432/smartlms")
+                    .await
+                    .ok();
             // If no DB, health check will report degraded
             match pool {
                 Some(p) => p,
@@ -36,6 +37,9 @@ async fn main() {
             }
         }
     };
+
+    // Suppress unused warning in current stub — pool will be passed to handlers
+    let _ = master_pool;
 
     // Build the router
     let api_router = smartlms_backend::api::create_api_router();

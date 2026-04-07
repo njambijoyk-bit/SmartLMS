@@ -4,15 +4,20 @@ authors = ["SmartLMS Team"]
 description = "SmartLMS ML Engine - Julia-based machine learning for adaptive learning"
 
 [deps]
-CSV = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
-DataFrames = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
-Dates = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
-Distributed = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
-HTTP = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
-JSON = "a93c6a2e-056a-11e9-0b3d-7f5d4c1b3b5e"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f22-1c32-4803-bef6-93a49de6c69c"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+Flux = "587083f2-d3b5-4ec1-ac02-97905a7fd8cf"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MLJ = "add582b5-e068-4d7b-a273-a7b3f8e4b1b4"
 MLJLinearModels = "6ee0df70-7f38-4b44-a533-5bd0c6f98c3b"
-MLJXGBoostInterface = "5c8d9ce7-a099-4bb3-8bf3-c7e56a8fa3be"
-Optim = "429524aa-8603-3f9a-a65c-600c7e3cdac"
+MLJXGBoostInterface = "54119ddc-c1a5-4069-95a6-75e7dfc29f44"
+Optim = "429524aa-8603-3f9a-a65c-600c7e3cdac0"
 Random = "9a3f8284-a2c9-5f02-9aa2-27d600c1c86b"
 Statistics = "10745b16-79ce-11e8-1111-552b1e1f2cf6"
+
+[compat]
+julia = "1.8"
