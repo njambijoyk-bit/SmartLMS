@@ -9,10 +9,18 @@ fn main() {
     
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
+        // TODO: Initialize master DB pool from environment
+        // let master_pool = sqlx::PgPool::connect(&std::env::var("DATABASE_URL").unwrap()).await.unwrap();
+        // let state = smartlms_backend::tenant::RouterState::new(master_pool);
+        
         let app = Router::new()
             .route("/", get(|| async { "SmartLMS Engine v0.1.0" }))
             .route("/health", get(|| async { "OK" }))
-            .route("/api/auth/login", get(|| async { "login" }))
+            // Public auth routes
+            .route("/api/auth/login", get(|| async { "POST /api/auth/login to login" }))
+            .route("/api/auth/register", get(|| async { "POST /api/auth/register to register" }))
+            // Institution routes
+            .route("/api/institutions/init", get(|| async { "POST /api/institutions/init to create new institution" }))
             .layer(TraceLayer::new_for_http())
             .layer(tower_http::cors::CorsLayer::new()
                 .allow_origin(Any)

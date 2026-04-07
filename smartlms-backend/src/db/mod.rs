@@ -1,1 +1,6 @@
-pub const DB_POOL: u32 = 0;
+// Database module - DB operations
+pub mod user;
+pub mod institution;
+
+pub use user::*;
+pub use institution::*;
