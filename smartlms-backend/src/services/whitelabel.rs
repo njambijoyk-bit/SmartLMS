@@ -54,17 +54,17 @@ impl From<&InstitutionConfig> for WhiteLabelConfig {
 /// Generate CSS variables from white-label config
 pub fn generate_css_variables(config: &WhiteLabelConfig) -> String {
     let mut css = String::from(":root {\n");
-    
+
     css.push_str(&format!("  --primary: {};\n", config.primary_color));
     css.push_str(&format!("  --secondary: {};\n", config.secondary_color));
     css.push_str(&format!("  --accent: {};\n", config.accent_color));
     css.push_str(&format!("  --bg: {};\n", config.background_color));
     css.push_str(&format!("  --text: {};\n", config.text_color));
-    
+
     if let Some(font) = &config.font_family {
         css.push_str(&format!("  --font-family: {};\n", font));
     }
-    
+
     css.push_str("}\n");
     css
 }
@@ -72,19 +72,19 @@ pub fn generate_css_variables(config: &WhiteLabelConfig) -> String {
 /// Generate complete CSS including custom CSS
 pub fn generate_full_css(config: &WhiteLabelConfig) -> String {
     let mut css = generate_css_variables(config);
-    
+
     // Base styles
     css.push_str("\n/* Base styles */\n");
     css.push_str("body { font-family: var(--font-family, system-ui); }\n");
     css.push_str(".btn-primary { background: var(--primary); }\n");
     css.push_str(".btn-secondary { background: var(--secondary); }\n");
-    
+
     // Custom CSS
     if let Some(custom) = &config.custom_css {
         css.push_str("\n/* Custom CSS */\n");
         css.push_str(custom);
     }
-    
+
     css
 }
 
@@ -94,37 +94,46 @@ pub fn validate_domain(domain: &str) -> Result<(), String> {
     if domain.len() < 3 || domain.len() > 253 {
         return Err("Invalid domain length".to_string());
     }
-    
+
     // Check for valid characters
-    if !domain.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '.') {
+    if !domain
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '.')
+    {
         return Err("Invalid domain characters".to_string());
     }
-    
+
     // Must have at least one dot
     if !domain.contains('.') {
         return Err("Domain must have TLD".to_string());
     }
-    
+
     Ok(())
 }
 
 /// Email template with white-label branding
 pub mod email {
     use super::WhiteLabelConfig;
-    
+
     /// Generate branded email header
     pub fn generate_header(config: &WhiteLabelConfig) -> String {
         let mut html = String::new();
-        
+
         if let Some(logo) = &config.logo_url {
-            html.push_str(&format!("<img src=\"{}\" alt=\"Logo\" style=\"max-height: 60px;\">", logo));
+            html.push_str(&format!(
+                "<img src=\"{}\" alt=\"Logo\" style=\"max-height: 60px;\">",
+                logo
+            ));
         } else {
-            html.push_str(&format!("<h1 style=\"color: {};\">SmartLMS</h1>", config.primary_color));
+            html.push_str(&format!(
+                "<h1 style=\"color: {};\">SmartLMS</h1>",
+                config.primary_color
+            ));
         }
-        
+
         html
     }
-    
+
     /// Generate branded email footer
     pub fn generate_footer(config: &WhiteLabelConfig, institution_name: &str) -> String {
         format!(
@@ -142,16 +151,16 @@ pub mod email {
 /// Custom domain management
 pub mod domain {
     use serde::{Deserialize, Serialize};
-    
+
     /// Custom domain status
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum DomainStatus {
-        Pending,      // DNS not yet configured
-        Verifying,    // Checking DNS records
-        Active,       // Domain working
-        Failed,       // Verification failed
+        Pending,   // DNS not yet configured
+        Verifying, // Checking DNS records
+        Active,    // Domain working
+        Failed,    // Verification failed
     }
-    
+
     /// Custom domain record
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct CustomDomain {
@@ -161,7 +170,7 @@ pub mod domain {
         pub ssl_enabled: bool,
         pub ssl_issuer: Option<String>,
     }
-    
+
     /// DNS verification record
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct DnsVerification {
@@ -170,7 +179,7 @@ pub mod domain {
         pub value: String,
         pub expected: String,
     }
-    
+
     /// Generate DNS TXT record for domain verification
     pub fn generate_verification_txt(subdomain: &str, institution_id: &str) -> DnsVerification {
         DnsVerification {
@@ -180,7 +189,7 @@ pub mod domain {
             expected: format!("smartlms-verification={}", institution_id),
         }
     }
-    
+
     /// Generate CNAME record for custom domain
     pub fn generate_cname(subdomain: &str) -> DnsVerification {
         DnsVerification {

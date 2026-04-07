@@ -1,7 +1,7 @@
 // Student Wellbeing Module — Weekly check-ins, counsellor management, at-risk escalation
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Weekly student wellbeing check-in response
 #[derive(Debug, Clone, Serialize, Deserialize)]

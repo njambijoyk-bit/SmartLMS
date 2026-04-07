@@ -1,7 +1,7 @@
 // Fee Management Service - Fee structure, payments, M-Pesa integration
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Fee structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,7 +10,7 @@ pub struct FeeStructure {
     pub institution_id: uuid::Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub amount: i64,  // In smallest currency unit (cents)
+    pub amount: i64, // In smallest currency unit (cents)
     pub currency: String,
     pub fee_type: FeeType,
     pub academic_year: String,
@@ -75,8 +75,8 @@ pub struct Payment {
 /// Payment method
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PaymentMethod {
-    Card,       // Stripe
-    Mpesa,      // Mobile money (Kenya)
+    Card,  // Stripe
+    Mpesa, // Mobile money (Kenya)
     BankTransfer,
     Cash,
     Cheque,
@@ -115,7 +115,7 @@ pub struct MpesaCallback {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Create fee structure for institution
     pub async fn create_fee_structure(
         pool: &PgPool,
@@ -123,7 +123,7 @@ pub mod service {
         req: &CreateFeeStructureRequest,
     ) -> Result<FeeStructure, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO fee_structures (id, institution_id, name, description, amount, currency, 
              fee_type, academic_year, semester, due_date, is_optional, late_fee_amount, late_fee_grace_days)
@@ -135,7 +135,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(FeeStructure {
             id,
             institution_id,
@@ -152,7 +152,7 @@ pub mod service {
             late_fee_grace_days: req.late_fee_grace_days,
         })
     }
-    
+
     /// Assign fee to student
     pub async fn assign_fee_to_student(
         pool: &PgPool,
@@ -163,19 +163,23 @@ pub mod service {
         let fee = get_fee_structure(pool, fee_structure_id)
             .await?
             .ok_or("Fee structure not found")?;
-        
+
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO student_fees (id, fee_structure_id, student_id, amount, amount_paid, 
              balance, status, due_date, late_fee_applied)
              VALUES ($1, $2, $3, $4, 0, $4, 'pending', $5, 0)",
-            id, fee_structure_id, student_id, fee.amount, fee.due_date
+            id,
+            fee_structure_id,
+            student_id,
+            fee.amount,
+            fee.due_date
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(StudentFee {
             id,
             fee_structure_id,
@@ -188,7 +192,7 @@ pub mod service {
             late_fee_applied: 0,
         })
     }
-    
+
     /// Process M-Pesa payment
     pub async fn process_mpesa_payment(
         pool: &PgPool,
@@ -196,12 +200,12 @@ pub mod service {
     ) -> Result<Payment, String> {
         // In production: call M-Pesa API (STK Push)
         // For now, simulate
-        
+
         let transaction_id = format!("MPESA{}", Uuid::new_v4().to_string()[..8].to_uppercase());
-        
+
         Ok(Payment {
             id: Uuid::new_v4(),
-            student_fee_id: Uuid::nil(),  // Would look up by account_reference
+            student_fee_id: Uuid::nil(), // Would look up by account_reference
             amount: req.amount,
             payment_method: PaymentMethod::Mpesa,
             transaction_id,
@@ -211,7 +215,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Process Stripe card payment
     pub async fn process_card_payment(
         pool: &PgPool,
@@ -220,7 +224,7 @@ pub mod service {
         payment_intent_id: &str,
     ) -> Result<Payment, String> {
         // In production: verify with Stripe API
-        
+
         let payment = Payment {
             id: Uuid::new_v4(),
             student_fee_id,
@@ -232,19 +236,25 @@ pub mod service {
             paid_at: Some(Utc::now()),
             created_at: Utc::now(),
         };
-        
+
         // Save payment
         sqlx::query!(
             "INSERT INTO payments (id, student_fee_id, amount, payment_method, transaction_id, 
              status, paid_at, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            payment.id, payment.student_fee_id, payment.amount, "card",
-            payment.transaction_id, "completed", payment.paid_at, payment.created_at
+            payment.id,
+            payment.student_fee_id,
+            payment.amount,
+            "card",
+            payment.transaction_id,
+            "completed",
+            payment.paid_at,
+            payment.created_at
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Update student fee balance
         sqlx::query!(
             "UPDATE student_fees SET 
@@ -255,15 +265,16 @@ pub mod service {
                     ELSE 'partial' 
                 END
              WHERE id = $2",
-            amount, student_fee_id
+            amount,
+            student_fee_id
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(payment)
     }
-    
+
     /// Get student fee summary
     pub async fn get_student_fee_summary(
         pool: &PgPool,
@@ -281,7 +292,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(FeeSummary {
             total_fees: row.total_fees.unwrap_or(0),
             total_paid: row.total_paid.unwrap_or(0),
@@ -289,7 +300,7 @@ pub mod service {
             overdue_fees: row.overdue_count.unwrap_or(0) as i32,
         })
     }
-    
+
     /// Generate invoice
     pub async fn generate_invoice(
         pool: &PgPool,
@@ -305,19 +316,22 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        let invoice_items: Vec<InvoiceItem> = rows.into_iter().map(|r| InvoiceItem {
-            fee_name: r.name,
-            description: r.description,
-            amount: r.amount,
-            amount_paid: r.amount_paid,
-            balance: r.balance,
-            due_date: r.due_date,
-        }).collect();
-        
+
+        let invoice_items: Vec<InvoiceItem> = rows
+            .into_iter()
+            .map(|r| InvoiceItem {
+                fee_name: r.name,
+                description: r.description,
+                amount: r.amount,
+                amount_paid: r.amount_paid,
+                balance: r.balance,
+                due_date: r.due_date,
+            })
+            .collect();
+
         let total: i64 = invoice_items.iter().map(|i| i.amount).sum();
         let paid: i64 = invoice_items.iter().map(|i| i.amount_paid).sum();
-        
+
         Ok(Invoice {
             invoice_number: format!("INV-{}", Utc::now().format("%Y%m%d")),
             student_id,

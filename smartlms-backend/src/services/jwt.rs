@@ -8,14 +8,14 @@ const JWT_EXPIRATION_HOURS: i64 = 24;
 /// JWT claims embedded in tokens
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: uuid::Uuid,           // User ID
+    pub sub: uuid::Uuid, // User ID
     pub email: String,
     pub first_name: String,
     pub last_name: String,
-    pub role: String,              // User role: admin, instructor, learner
+    pub role: String,               // User role: admin, instructor, learner
     pub institution_id: uuid::Uuid, // Tenant ID
-    pub exp: i64,                  // Expiration timestamp
-    pub iat: i64,                  // Issued at timestamp
+    pub exp: i64,                   // Expiration timestamp
+    pub iat: i64,                   // Issued at timestamp
 }
 
 /// Create new JWT token for user
@@ -29,7 +29,7 @@ pub fn create_token(
 ) -> Result<String, jsonwebtoken::errors::Error> {
     let now = Utc::now();
     let exp = now + Duration::hours(JWT_EXPIRATION_HOURS);
-    
+
     let claims = Claims {
         sub: user_id,
         email,
@@ -40,7 +40,7 @@ pub fn create_token(
         exp: exp.timestamp(),
         iat: now.timestamp(),
     };
-    
+
     jsonwebtoken::encode(
         &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
         &claims,
@@ -62,7 +62,7 @@ pub fn validate_token(token: &str) -> Result<Claims, String> {
 /// Refresh token (create new with extended expiration)
 pub fn refresh_token(token: &str) -> Result<String, String> {
     let claims = validate_token(token)?;
-    
+
     create_token(
         claims.sub,
         claims.email,
@@ -82,7 +82,7 @@ pub fn get_expiration() -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_create_and_validate_token() {
         let token = create_token(
@@ -92,10 +92,11 @@ mod tests {
             "User".to_string(),
             "admin".to_string(),
             uuid::Uuid::new_v4(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let claims = validate_token(&token).unwrap();
-        
+
         assert_eq!(claims.email, "test@example.com");
         assert_eq!(claims.role, "admin");
     }

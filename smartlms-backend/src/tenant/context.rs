@@ -1,9 +1,9 @@
 // Multi-tenant institution context - extracted from Host header on every request
-use sqlx::PgPool;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
-use crate::models::institution::Institution;
 use crate::db::institution as inst_db;
+use crate::models::institution::Institution;
 
 /// Plan tier determines feature access
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,7 +82,7 @@ impl InstitutionCtx {
     pub fn has_feature(&self, feature: &str) -> bool {
         self.config.feature_flags.contains(&feature.to_string())
     }
-    
+
     /// Check if the plan tier meets minimum required tier
     pub fn has_plan_min(&self, min_tier: PlanTier) -> bool {
         match (self.plan, min_tier) {
@@ -123,54 +123,57 @@ impl RouterState {
     /// Resolve institution context from Host header
     pub async fn resolve_institution(&self, host: &str) -> Option<InstitutionCtx> {
         // Strip port if present
-        let host = host.trim_start_matches("localhost:")
+        let host = host
+            .trim_start_matches("localhost:")
             .trim_start_matches("127.0.0.1:")
-            .split(':').next()
+            .split(':')
+            .next()
             .unwrap_or(host);
-        
+
         // Check if it's a subdomain of smartlms.io
         if host.ends_with(".smartlms.io") || host.ends_with(".smartlms.local") {
-            let slug = host.trim_end_matches(".smartlms.io")
+            let slug = host
+                .trim_end_matches(".smartlms.io")
                 .trim_end_matches(".smartlms.local");
             return self.get_institution_by_slug(slug).await;
         }
-        
+
         // Check custom domain map
         if let Some(slug) = self.domain_map.get(host) {
             return self.get_institution_by_slug(&slug).await;
         }
-        
+
         // Default to demo for localhost
         if host == "localhost" || host == "127.0.0.1" {
             return self.get_institution_by_slug("demo").await;
         }
-        
+
         None
     }
-    
+
     /// Get institution by slug, checking cache first
     pub async fn get_institution_by_slug(&self, slug: &str) -> Option<InstitutionCtx> {
         // Check cache first
         if let Some(cached) = self.institution_cache.get(slug) {
             return Some(cached.clone());
         }
-        
+
         // Query master DB
         if let Ok(Some(inst)) = inst_db::find_by_slug(&self.master_pool, slug).await {
             let ctx = self.build_context(&inst).await?;
             self.institution_cache.insert(slug.to_string(), ctx.clone());
             return Some(ctx);
         }
-        
+
         None
     }
-    
+
     /// Build institution context from database record
     async fn build_context(&self, inst: &Institution) -> Option<InstitutionCtx> {
         // Create per-institution DB pool
         let db_url = inst.database_url.as_ref()?;
         let pool = PgPool::connect(db_url).await.ok()?;
-        
+
         Some(InstitutionCtx {
             id: inst.id,
             slug: inst.slug.clone(),

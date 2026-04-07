@@ -1,9 +1,9 @@
 // ABAC (Attribute-Based Access Control) Service
 // Extends RBAC with fine-grained policies based on user, resource, and environment attributes
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Attribute source - where the attribute comes from
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,19 +34,31 @@ pub enum AttributeValue {
 
 impl AttributeValue {
     pub fn as_string(&self) -> Option<&str> {
-        match self { AttributeValue::String(s) => Some(s), _ => None }
+        match self {
+            AttributeValue::String(s) => Some(s),
+            _ => None,
+        }
     }
-    
+
     pub fn as_number(&self) -> Option<f64> {
-        match self { AttributeValue::Number(n) => Some(*n), _ => None }
+        match self {
+            AttributeValue::Number(n) => Some(*n),
+            _ => None,
+        }
     }
-    
+
     pub fn as_bool(&self) -> Option<bool> {
-        match self { AttributeValue::Boolean(b) => Some(*b), _ => None }
+        match self {
+            AttributeValue::Boolean(b) => Some(*b),
+            _ => None,
+        }
     }
-    
+
     pub fn as_list(&self) -> Option<&Vec<String>> {
-        match self { AttributeValue::List(l) => Some(l), _ => None }
+        match self {
+            AttributeValue::List(l) => Some(l),
+            _ => None,
+        }
     }
 }
 
@@ -54,24 +66,24 @@ impl AttributeValue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operator {
     // Equality
-    Eq,      // equal
-    Neq,     // not equal
-    
+    Eq,  // equal
+    Neq, // not equal
+
     // Comparison
-    Gt,      // greater than
-    Gte,     // greater than or equal
-    Lt,      // less than
-    Lte,     // less than or equal
-    
+    Gt,  // greater than
+    Gte, // greater than or equal
+    Lt,  // less than
+    Lte, // less than or equal
+
     // Set membership
-    In,      // in set
-    NotIn,   // not in set
-    
+    In,    // in set
+    NotIn, // not in set
+
     // String operations
-    Contains,    // contains substring
-    StartsWith,  // starts with prefix
-    EndsWith,    // ends with suffix
-    
+    Contains,   // contains substring
+    StartsWith, // starts with prefix
+    EndsWith,   // ends with suffix
+
     // Range
     Between, // between (for dates/numbers)
 }
@@ -113,14 +125,14 @@ impl ConditionExpression {
             conditions,
         }
     }
-    
+
     pub fn or(conditions: Vec<ConditionExpression>) -> Self {
         ConditionExpression::Compound {
             logical_op: LogicalOperator::Or,
             conditions,
         }
     }
-    
+
     pub fn not(condition: ConditionExpression) -> Self {
         ConditionExpression::Compound {
             logical_op: LogicalOperator::Not,
@@ -144,22 +156,22 @@ pub struct AbacPolicy {
     pub name: String,
     pub description: Option<String>,
     pub effect: PolicyEffect,
-    
+
     // Subject selectors (who)
     pub subjects: Vec<SubjectSelector>,
-    
+
     // Action selectors (what operation)
-    pub actions: Vec<String>,  // e.g., "courses:read", "users:write"
-    
+    pub actions: Vec<String>, // e.g., "courses:read", "users:write"
+
     // Resource selectors (which resources)
     pub resources: Vec<ResourceSelector>,
-    
+
     // Conditions under which policy applies
     pub conditions: Option<ConditionExpression>,
-    
+
     // Priority for evaluation order (higher = evaluated first)
     pub priority: i32,
-    
+
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -180,7 +192,7 @@ pub struct SubjectSelector {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSelector {
     // Match by resource type
-    pub resource_type: Option<String>,  // "course", "assessment", "lesson", etc.
+    pub resource_type: Option<String>, // "course", "assessment", "lesson", etc.
     // Match by resource attribute
     pub attributes: Option<Vec<Condition>>,
     // Match specific resource IDs
@@ -191,8 +203,8 @@ pub struct ResourceSelector {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AccessDecision {
     Allow,
-    Deny(String),  // Reason for denial
-    Indeterminate(String),  // Can't determine - multiple policies conflict
+    Deny(String),          // Reason for denial
+    Indeterminate(String), // Can't determine - multiple policies conflict
 }
 
 /// Request context for authorization
@@ -201,13 +213,13 @@ pub struct AccessRequest {
     pub user_id: uuid::Uuid,
     pub user_roles: Vec<String>,
     pub user_attributes: std::collections::HashMap<String, AttributeValue>,
-    
-    pub action: String,  // e.g., "courses:write"
-    
+
+    pub action: String, // e.g., "courses:write"
+
     pub resource_type: String,
     pub resource_id: Option<uuid::Uuid>,
     pub resource_attributes: std::collections::HashMap<String, AttributeValue>,
-    
+
     pub environment: EnvironmentAttributes,
 }
 
@@ -248,20 +260,24 @@ impl AbacPolicy {
         if !self.matches_subject(request) {
             return false;
         }
-        
+
         // Check action matches
-        if !self.actions.iter().any(|a| request.action.starts_with(a) || a == "*") {
+        if !self
+            .actions
+            .iter()
+            .any(|a| request.action.starts_with(a) || a == "*")
+        {
             return false;
         }
-        
+
         // Check resource matches
         if !self.matches_resource(request) {
             return false;
         }
-        
+
         true
     }
-    
+
     fn matches_subject(&self, request: &AccessRequest) -> bool {
         for selector in &self.subjects {
             // Check role match
@@ -270,14 +286,14 @@ impl AbacPolicy {
                     return true;
                 }
             }
-            
+
             // Check user ID match
             if let Some(user_ids) = &selector.user_ids {
                 if user_ids.contains(&request.user_id) {
                     return true;
                 }
             }
-            
+
             // Check attribute match
             if let Some(attrs) = &selector.attributes {
                 let mut attr_match = true;
@@ -292,11 +308,11 @@ impl AbacPolicy {
                 }
             }
         }
-        
+
         // Empty subjects means match all
         self.subjects.is_empty()
     }
-    
+
     fn matches_resource(&self, request: &AccessRequest) -> bool {
         for selector in &self.resources {
             // Check resource type match
@@ -305,7 +321,7 @@ impl AbacPolicy {
                     continue;
                 }
             }
-            
+
             // Check resource ID match
             if let Some(ids) = &selector.resource_ids {
                 if let Some(rid) = request.resource_id {
@@ -332,21 +348,24 @@ impl AbacPolicy {
                 }
             }
         }
-        
+
         // Empty resources means match all
         self.resources.is_empty()
     }
 }
 
 /// Evaluate a single attribute condition
-pub fn evaluate_attribute_condition(cond: &Condition, attrs: &std::collections::HashMap<String, AttributeValue>) -> bool {
+pub fn evaluate_attribute_condition(
+    cond: &Condition,
+    attrs: &std::collections::HashMap<String, AttributeValue>,
+) -> bool {
     let attr_value = attrs.get(&cond.attribute);
-    
+
     match (attr_value, &cond.operator) {
         // Equality checks
         (Some(actual), Operator::Eq) => values_equal(actual, &cond.value),
         (Some(actual), Operator::Neq) => !values_equal(actual, &cond.value),
-        
+
         // Numeric comparisons
         (Some(AttributeValue::Number(n)), Operator::Gt) => {
             cond.value.as_number().map(|v| n > v).unwrap_or(false)
@@ -360,7 +379,7 @@ pub fn evaluate_attribute_condition(cond: &Condition, attrs: &std::collections::
         (Some(AttributeValue::Number(n)), Operator::Lte) => {
             cond.value.as_number().map(|v| n <= v).unwrap_or(false)
         }
-        
+
         // Set membership
         (Some(actual), Operator::In) => {
             if let Some(expected_list) = cond.value.as_list() {
@@ -378,23 +397,31 @@ pub fn evaluate_attribute_condition(cond: &Condition, attrs: &std::collections::
             }
             true
         }
-        
+
         // String operations
-        (Some(AttributeValue::String(s)), Operator::Contains) => {
-            cond.value.as_string().map(|v| s.contains(v)).unwrap_or(false)
-        }
-        (Some(AttributeValue::String(s)), Operator::StartsWith) => {
-            cond.value.as_string().map(|v| s.starts_with(v)).unwrap_or(false)
-        }
-        (Some(AttributeValue::String(s)), Operator::EndsWith) => {
-            cond.value.as_string().map(|v| s.ends_with(v)).unwrap_or(false)
-        }
-        
+        (Some(AttributeValue::String(s)), Operator::Contains) => cond
+            .value
+            .as_string()
+            .map(|v| s.contains(v))
+            .unwrap_or(false),
+        (Some(AttributeValue::String(s)), Operator::StartsWith) => cond
+            .value
+            .as_string()
+            .map(|v| s.starts_with(v))
+            .unwrap_or(false),
+        (Some(AttributeValue::String(s)), Operator::EndsWith) => cond
+            .value
+            .as_string()
+            .map(|v| s.ends_with(v))
+            .unwrap_or(false),
+
         // Boolean
-        (Some(actual), Operator::Eq) => {
-            cond.value.as_bool().map(|v| actual.as_bool() == Some(v)).unwrap_or(false)
-        }
-        
+        (Some(actual), Operator::Eq) => cond
+            .value
+            .as_bool()
+            .map(|v| actual.as_bool() == Some(v))
+            .unwrap_or(false),
+
         _ => false,
     }
 }
@@ -416,24 +443,25 @@ pub fn evaluate_condition_expression(
 ) -> bool {
     match expr {
         ConditionExpression::Simple(cond) => evaluate_attribute_condition(cond, attrs),
-        
-        ConditionExpression::Compound { logical_op, conditions } => {
-            match logical_op {
-                LogicalOperator::And => {
-                    conditions.iter().all(|c| evaluate_condition_expression(c, attrs))
-                }
-                LogicalOperator::Or => {
-                    conditions.iter().any(|c| evaluate_condition_expression(c, attrs))
-                }
-                LogicalOperator::Not => {
-                    if let Some(first) = conditions.first() {
-                        !evaluate_condition_expression(first, attrs)
-                    } else {
-                        true
-                    }
+
+        ConditionExpression::Compound {
+            logical_op,
+            conditions,
+        } => match logical_op {
+            LogicalOperator::And => conditions
+                .iter()
+                .all(|c| evaluate_condition_expression(c, attrs)),
+            LogicalOperator::Or => conditions
+                .iter()
+                .any(|c| evaluate_condition_expression(c, attrs)),
+            LogicalOperator::Not => {
+                if let Some(first) = conditions.first() {
+                    !evaluate_condition_expression(first, attrs)
+                } else {
+                    true
                 }
             }
-        }
+        },
     }
 }
 
@@ -443,7 +471,7 @@ pub fn evaluate_policy(policy: &AbacPolicy, request: &AccessRequest) -> bool {
     if !policy.matches_request(request) {
         return false;
     }
-    
+
     // Then evaluate conditions if present
     if let Some(ref conditions) = policy.conditions {
         // Build combined attributes map
@@ -452,14 +480,17 @@ pub fn evaluate_policy(policy: &AbacPolicy, request: &AccessRequest) -> bool {
             all_attrs.insert(k.clone(), v.clone());
         }
         // Add environment attributes
-        all_attrs.insert("current_time".to_string(), AttributeValue::Datetime(request.environment.current_time));
+        all_attrs.insert(
+            "current_time".to_string(),
+            AttributeValue::Datetime(request.environment.current_time),
+        );
         if let Some(ip) = &request.environment.ip_address {
             all_attrs.insert("ip_address".to_string(), AttributeValue::String(ip.clone()));
         }
         if let Some(loc) = &request.environment.location {
             all_attrs.insert("location".to_string(), AttributeValue::String(loc.clone()));
         }
-        
+
         evaluate_condition_expression(conditions, &all_attrs)
     } else {
         // No conditions = always matches
@@ -468,20 +499,15 @@ pub fn evaluate_policy(policy: &AbacPolicy, request: &AccessRequest) -> bool {
 }
 
 /// Evaluate all policies and make access decision
-pub fn evaluate_access(
-    request: &AccessRequest,
-    policies: &[AbacPolicy],
-) -> EvaluationResult {
+pub fn evaluate_access(request: &AccessRequest, policies: &[AbacPolicy]) -> EvaluationResult {
     let mut allow_policies = Vec::new();
     let mut deny_policies = Vec::new();
     let mut evaluated = Vec::new();
-    
+
     // Sort by priority (higher first)
-    let mut sorted_policies: Vec<&AbacPolicy> = policies.iter()
-        .filter(|p| p.enabled)
-        .collect();
+    let mut sorted_policies: Vec<&AbacPolicy> = policies.iter().filter(|p| p.enabled).collect();
     sorted_policies.sort_by(|a, b| b.priority.cmp(&a.priority));
-    
+
     for policy in sorted_policies {
         if evaluate_policy(policy, request) {
             match policy.effect {
@@ -489,7 +515,7 @@ pub fn evaluate_access(
                 PolicyEffect::Deny => deny_policies.push(policy.id),
             }
         }
-        
+
         evaluated.push(ConditionEvaluation {
             condition: Condition {
                 attribute: "policy_match".to_string(),
@@ -501,7 +527,7 @@ pub fn evaluate_access(
             error: None,
         });
     }
-    
+
     // Decision logic: deny overrides allow
     let decision = if !deny_policies.is_empty() {
         AccessDecision::Deny(format!("Denied by policies: {:?}", deny_policies))
@@ -510,10 +536,14 @@ pub fn evaluate_access(
     } else {
         AccessDecision::Indeterminate("No matching policies".to_string())
     };
-    
+
     EvaluationResult {
         decision,
-        matched_policies: allow_policies.iter().chain(deny_policies.iter()).copied().collect(),
+        matched_policies: allow_policies
+            .iter()
+            .chain(deny_policies.iter())
+            .copied()
+            .collect(),
         evaluated_conditions: evaluated,
     }
 }
@@ -528,7 +558,7 @@ pub fn time_based_policy(
     name: &str,
     start_hour: i32,
     end_hour: i32,
-    days: Vec<i32>,  // 0=Sunday, 1=Monday, etc.
+    days: Vec<i32>, // 0=Sunday, 1=Monday, etc.
     allowed_roles: Vec<String>,
     action: &str,
 ) -> AbacPolicy {
@@ -536,7 +566,10 @@ pub fn time_based_policy(
         id: Uuid::new_v4(),
         institution_id,
         name: name.to_string(),
-        description: Some(format!("Allow {} only during {}:00-{}:00 on days {:?}", action, start_hour, end_hour, days)),
+        description: Some(format!(
+            "Allow {} only during {}:00-{}:00 on days {:?}",
+            action, start_hour, end_hour, days
+        )),
         effect: PolicyEffect::Allow,
         subjects: vec![SubjectSelector {
             roles: Some(allowed_roles),
@@ -576,7 +609,10 @@ pub fn department_access_policy(
         id: Uuid::new_v4(),
         institution_id,
         name: name.to_string(),
-        description: Some(format!("Allow {} only for department {}", action, department)),
+        description: Some(format!(
+            "Allow {} only for department {}",
+            action, department
+        )),
         effect: PolicyEffect::Allow,
         subjects: vec![SubjectSelector {
             roles: Some(allowed_roles),
@@ -602,14 +638,17 @@ pub fn department_access_policy(
 pub fn enrollment_status_policy(
     institution_id: uuid::Uuid,
     name: &str,
-    required_status: &str,  // "active", "pending", "graduated", etc.
+    required_status: &str, // "active", "pending", "graduated", etc.
     action: &str,
 ) -> AbacPolicy {
     AbacPolicy {
         id: Uuid::new_v4(),
         institution_id,
         name: name.to_string(),
-        description: Some(format!("Allow {} only for users with {} enrollment status", action, required_status)),
+        description: Some(format!(
+            "Allow {} only for users with {} enrollment status",
+            action, required_status
+        )),
         effect: PolicyEffect::Allow,
         subjects: vec![SubjectSelector {
             roles: Some(vec!["learner".to_string()]),
@@ -635,28 +674,34 @@ pub fn enrollment_status_policy(
 pub fn ip_restriction_policy(
     institution_id: uuid::Uuid,
     name: &str,
-    allowed_ips: Vec<String>,  // IP ranges or CIDR
+    allowed_ips: Vec<String>, // IP ranges or CIDR
     action: &str,
 ) -> AbacPolicy {
     AbacPolicy {
         id: Uuid::new_v4(),
         institution_id,
         name: name.to_string(),
-        description: Some(format!("Allow {} only from IP ranges {:?}", action, allowed_ips)),
+        description: Some(format!(
+            "Allow {} only from IP ranges {:?}",
+            action, allowed_ips
+        )),
         effect: PolicyEffect::Allow,
         subjects: vec![],
         actions: vec![action.to_string()],
         resources: vec![],
         conditions: Some(ConditionExpression::Compound {
             logical_op: LogicalOperator::Or,
-            conditions: allowed_ips.iter().map(|ip| {
-                ConditionExpression::Simple(Condition {
-                    attribute: "ip_address".to_string(),
-                    operator: Operator::StartsWith,
-                    value: AttributeValue::String(ip.clone()),
-                    value_end: None,
+            conditions: allowed_ips
+                .iter()
+                .map(|ip| {
+                    ConditionExpression::Simple(Condition {
+                        attribute: "ip_address".to_string(),
+                        operator: Operator::StartsWith,
+                        value: AttributeValue::String(ip.clone()),
+                        value_end: None,
+                    })
                 })
-            }).collect(),
+                .collect(),
         }),
         priority: 90,
         enabled: true,
@@ -669,7 +714,7 @@ pub fn ip_restriction_policy(
 pub fn course_ownership_policy(
     institution_id: uuid::Uuid,
     name: &str,
-    action: &str,  // e.g., "courses:write"
+    action: &str, // e.g., "courses:write"
 ) -> AbacPolicy {
     AbacPolicy {
         id: Uuid::new_v4(),
@@ -688,7 +733,7 @@ pub fn course_ownership_policy(
             attributes: Some(vec![Condition {
                 attribute: "instructor_id".to_string(),
                 operator: Operator::Eq,
-                value: AttributeValue::String("${user_id}".to_string()),  // Placeholder
+                value: AttributeValue::String("${user_id}".to_string()), // Placeholder
                 value_end: None,
             }]),
             resource_ids: None,

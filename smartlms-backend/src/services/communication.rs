@@ -1,7 +1,7 @@
 // Communication Service - Announcements, messaging, notifications
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Announcement entity
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,7 +11,7 @@ pub struct Announcement {
     pub title: String,
     pub content: String,
     pub target_type: AnnouncementTarget,
-    pub target_ids: Vec<uuid::Uuid>,  // course_ids, role names, or user_ids
+    pub target_ids: Vec<uuid::Uuid>, // course_ids, role names, or user_ids
     pub priority: AnnouncementPriority,
     pub published_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -22,10 +22,10 @@ pub struct Announcement {
 /// Announcement targeting
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AnnouncementTarget {
-    All,           // All users
-    Role,          // Specific roles
-    Course,        // Users enrolled in specific courses
-    User,          // Specific users
+    All,    // All users
+    Role,   // Specific roles
+    Course, // Users enrolled in specific courses
+    User,   // Specific users
 }
 
 /// Announcement priority
@@ -120,7 +120,7 @@ pub struct NotificationPreferencesRequest {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Create an announcement
     pub async fn create_announcement(
         pool: &PgPool,
@@ -131,31 +131,40 @@ pub mod service {
         if req.title.is_empty() {
             return Err("Title is required".to_string());
         }
-        
+
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         let published_at = if req.publish_now {
             Some(now)
         } else {
             req.scheduled_at
         };
-        
+
         sqlx::query!(
             "INSERT INTO announcements (id, institution_id, title, content, target_type, 
              target_ids, priority, published_at, expires_at, created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-            id, institution_id, req.title, req.content, format!("{:?}", req.target_type).to_lowercase(),
+            id,
+            institution_id,
+            req.title,
+            req.content,
+            format!("{:?}", req.target_type).to_lowercase(),
             serde_json::to_string(&req.target_ids).unwrap_or_default(),
-            format!("{:?}", req.priority).to_lowercase(), published_at, req.expires_at, creator_id, now
+            format!("{:?}", req.priority).to_lowercase(),
+            published_at,
+            req.expires_at,
+            creator_id,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Create notifications for target users
-        let target_user_ids = get_target_user_ids(pool, institution_id, &req.target_type, &req.target_ids).await?;
-        
+        let target_user_ids =
+            get_target_user_ids(pool, institution_id, &req.target_type, &req.target_ids).await?;
+
         for user_id in target_user_ids {
             create_notification(
                 pool,
@@ -164,9 +173,10 @@ pub mod service {
                 &req.title,
                 &req.content,
                 Some(&format!("/announcements/{}", id)),
-            ).await?;
+            )
+            .await?;
         }
-        
+
         Ok(Announcement {
             id,
             institution_id,
@@ -181,7 +191,7 @@ pub mod service {
             created_at: now,
         })
     }
-    
+
     /// Send a direct message
     pub async fn send_message(
         pool: &PgPool,
@@ -190,16 +200,21 @@ pub mod service {
     ) -> Result<Message, String> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         sqlx::query!(
             "INSERT INTO messages (id, sender_id, receiver_id, subject, body, is_read, created_at)
              VALUES ($1, $2, $3, $4, $5, false, $6)",
-            id, sender_id, req.receiver_id, req.subject, req.body, now
+            id,
+            sender_id,
+            req.receiver_id,
+            req.subject,
+            req.body,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Create notification for receiver
         create_notification(
             pool,
@@ -208,8 +223,9 @@ pub mod service {
             "New Message",
             req.subject.as_deref().unwrap_or("You have a new message"),
             Some("/messages"),
-        ).await?;
-        
+        )
+        .await?;
+
         Ok(Message {
             id,
             sender_id,
@@ -221,7 +237,7 @@ pub mod service {
             created_at: now,
         })
     }
-    
+
     /// Get user notifications
     pub async fn get_notifications(
         pool: &PgPool,
@@ -242,21 +258,24 @@ pub mod service {
                 user_id, limit
             )
         };
-        
+
         let rows = query.fetch_all(pool).await.map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| Notification {
-            id: r.id,
-            user_id: r.user_id,
-            notification_type: NotificationType::System,  // Parse from string
-            title: r.title,
-            message: r.message,
-            action_url: r.action_url,
-            is_read: r.is_read,
-            created_at: r.created_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Notification {
+                id: r.id,
+                user_id: r.user_id,
+                notification_type: NotificationType::System, // Parse from string
+                title: r.title,
+                message: r.message,
+                action_url: r.action_url,
+                is_read: r.is_read,
+                created_at: r.created_at,
+            })
+            .collect())
     }
-    
+
     /// Mark notification as read
     pub async fn mark_notification_read(
         pool: &PgPool,
@@ -264,18 +283,20 @@ pub mod service {
         user_id: uuid::Uuid,
     ) -> Result<(), String> {
         let now = Utc::now();
-        
+
         sqlx::query!(
             "UPDATE notifications SET is_read = true, read_at = $1 WHERE id = $2 AND user_id = $3",
-            now, notification_id, user_id
+            now,
+            notification_id,
+            user_id
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(())
     }
-    
+
     async fn create_notification(
         pool: &PgPool,
         user_id: uuid::Uuid,
@@ -286,7 +307,7 @@ pub mod service {
     ) -> Result<Notification, String> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         sqlx::query!(
             "INSERT INTO notifications (id, user_id, notification_type, title, message, action_url, is_read, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, false, $7)",
@@ -295,7 +316,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(Notification {
             id,
             user_id,
@@ -307,7 +328,7 @@ pub mod service {
             created_at: now,
         })
     }
-    
+
     async fn get_target_user_ids(
         pool: &PgPool,
         institution_id: uuid::Uuid,

@@ -49,10 +49,19 @@ pub async fn create(
         "INSERT INTO courses (id, title, description, category, tags, language, difficulty, 
                             instructor_id, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-        id, req.title, req.description, req.category, tags,
+        id,
+        req.title,
+        req.description,
+        req.category,
+        tags,
         req.language.clone().unwrap_or_else(|| "en".to_string()),
-        req.difficulty.clone().unwrap_or_else(|| "beginner".to_string()),
-        instructor_id, "draft", now, now
+        req.difficulty
+            .clone()
+            .unwrap_or_else(|| "beginner".to_string()),
+        instructor_id,
+        "draft",
+        now,
+        now
     )
     .execute(pool)
     .await?;
@@ -71,7 +80,10 @@ pub async fn create(
         completion_rate: 0.0,
         rating: 0.0,
         language: req.language.clone().unwrap_or_else(|| "en".to_string()),
-        difficulty: req.difficulty.clone().unwrap_or_else(|| "beginner".to_string()),
+        difficulty: req
+            .difficulty
+            .clone()
+            .unwrap_or_else(|| "beginner".to_string()),
         duration_hours: 0,
         created_at: now,
         updated_at: now,
@@ -85,7 +97,7 @@ pub async fn update(
     req: &UpdateCourseRequest,
 ) -> Result<Course, sqlx::Error> {
     let now = chrono::Utc::now();
-    
+
     sqlx::query!(
         "UPDATE courses SET 
             title = COALESCE($1, title),
@@ -96,10 +108,16 @@ pub async fn update(
             thumbnail_url = COALESCE($6, thumbnail_url),
             updated_at = $7
          WHERE id = $8",
-        req.title, req.description, req.category, 
-        req.tags.as_ref().map(|t| serde_json::to_string(t).unwrap_or_default()),
+        req.title,
+        req.description,
+        req.category,
+        req.tags
+            .as_ref()
+            .map(|t| serde_json::to_string(t).unwrap_or_default()),
         req.status.map(|s| format!("{:?}", s).to_lowercase()),
-        req.thumbnail_url, now, course_id
+        req.thumbnail_url,
+        now,
+        course_id
     )
     .execute(pool)
     .await?;
@@ -116,41 +134,45 @@ pub async fn list(
     instructor_id: Option<Uuid>,
 ) -> Result<(Vec<Course>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
-    
+
     let rows = sqlx::query!(
         "SELECT id, title, description, short_description, thumbnail_url, status,
                 category, tags, instructor_id, enrollment_count, completion_rate,
                 rating, language, difficulty, duration_hours, created_at, updated_at, published_at
          FROM courses WHERE status = 'published' ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-        per_page, offset
+        per_page,
+        offset
     )
     .fetch_all(pool)
     .await?;
 
     // Simplified - in production use proper query
-    let courses: Vec<Course> = rows.into_iter().map(|r| Course {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        short_description: r.short_description,
-        thumbnail_url: r.thumbnail_url,
-        status: CourseStatus::Published,
-        category: r.category,
-        tags: vec![],
-        instructor_id: r.instructor_id,
-        enrollment_count: r.enrollment_count,
-        completion_rate: r.completion_rate as f32,
-        rating: r.rating as f32,
-        language: "en".to_string(),
-        difficulty: "beginner".to_string(),
-        duration_hours: r.duration_hours,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        published_at: r.published_at,
-    }).collect();
+    let courses: Vec<Course> = rows
+        .into_iter()
+        .map(|r| Course {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            short_description: r.short_description,
+            thumbnail_url: r.thumbnail_url,
+            status: CourseStatus::Published,
+            category: r.category,
+            tags: vec![],
+            instructor_id: r.instructor_id,
+            enrollment_count: r.enrollment_count,
+            completion_rate: r.completion_rate as f32,
+            rating: r.rating as f32,
+            language: "en".to_string(),
+            difficulty: "beginner".to_string(),
+            duration_hours: r.duration_hours,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            published_at: r.published_at,
+        })
+        .collect();
 
     let total = courses.len() as i64; // Simplified
-    
+
     Ok((courses, total))
 }
 
@@ -162,41 +184,46 @@ pub async fn search(
 ) -> Result<(Vec<Course>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
     let search = format!("%{}%", query);
-    
+
     let rows = sqlx::query!(
         "SELECT id, title, description, short_description, thumbnail_url, status,
                 category, tags, instructor_id, enrollment_count, completion_rate,
                 rating, language, difficulty, duration_hours, created_at, updated_at, published_at
          FROM courses WHERE status = 'published' AND (title ILIKE $1 OR description ILIKE $1)
          ORDER BY created_at DESC LIMIT $2 OFFSET $3",
-        search, per_page, offset
+        search,
+        per_page,
+        offset
     )
     .fetch_all(pool)
     .await?;
 
-    let courses: Vec<Course> = rows.into_iter().map(|r| Course {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        short_description: r.short_description,
-        thumbnail_url: r.thumbnail_url,
-        status: CourseStatus::Published,
-        category: r.category,
-        tags: vec![],
-        instructor_id: r.instructor_id,
-        enrollment_count: r.enrollment_count,
-        completion_rate: r.completion_rate as f32,
-        rating: r.rating as f32,
-        language: "en".to_string(),
-        difficulty: "beginner".to_string(),
-        duration_hours: r.duration_hours,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        published_at: r.published_at,
-    }).collect();
+    let courses: Vec<Course> = rows
+        .into_iter()
+        .map(|r| Course {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            short_description: r.short_description,
+            thumbnail_url: r.thumbnail_url,
+            status: CourseStatus::Published,
+            category: r.category,
+            tags: vec![],
+            instructor_id: r.instructor_id,
+            enrollment_count: r.enrollment_count,
+            completion_rate: r.completion_rate as f32,
+            rating: r.rating as f32,
+            language: "en".to_string(),
+            difficulty: "beginner".to_string(),
+            duration_hours: r.duration_hours,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            published_at: r.published_at,
+        })
+        .collect();
 
     let total = courses.len() as i64;
-    
+
     Ok((courses, total))
 }
 
@@ -210,19 +237,25 @@ pub async fn get_modules(pool: &PgPool, course_id: Uuid) -> Result<Vec<Module>, 
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Module {
-        id: r.id,
-        course_id: r.course_id,
-        title: r.title,
-        description: r.description,
-        order: r.order_index,
-        duration_minutes: r.duration_minutes,
-        is_preview: r.is_preview,
-        created_at: r.created_at,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Module {
+            id: r.id,
+            course_id: r.course_id,
+            title: r.title,
+            description: r.description,
+            order: r.order_index,
+            duration_minutes: r.duration_minutes,
+            is_preview: r.is_preview,
+            created_at: r.created_at,
+        })
+        .collect())
 }
 
-pub async fn create_module(pool: &PgPool, req: &CreateModuleRequest) -> Result<Module, sqlx::Error> {
+pub async fn create_module(
+    pool: &PgPool,
+    req: &CreateModuleRequest,
+) -> Result<Module, sqlx::Error> {
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
     let order = req.order.unwrap_or(0);
@@ -230,7 +263,12 @@ pub async fn create_module(pool: &PgPool, req: &CreateModuleRequest) -> Result<M
     sqlx::query!(
         "INSERT INTO modules (id, course_id, title, description, order_index, created_at)
          VALUES ($1, $2, $3, $4, $5, $6)",
-        id, req.course_id, req.title, req.description, order, now
+        id,
+        req.course_id,
+        req.title,
+        req.description,
+        order,
+        now
     )
     .execute(pool)
     .await?;
@@ -258,23 +296,29 @@ pub async fn get_lessons(pool: &PgPool, module_id: Uuid) -> Result<Vec<Lesson>, 
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Lesson {
-        id: r.id,
-        module_id: r.module_id,
-        title: r.title,
-        lesson_type: LessonType::Text,
-        content: r.content,
-        video_url: r.video_url,
-        video_duration_seconds: r.video_duration_seconds,
-        duration_minutes: r.duration_minutes,
-        order: r.order_index,
-        is_preview: r.is_preview,
-        is_free: r.is_free,
-        created_at: r.created_at,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Lesson {
+            id: r.id,
+            module_id: r.module_id,
+            title: r.title,
+            lesson_type: LessonType::Text,
+            content: r.content,
+            video_url: r.video_url,
+            video_duration_seconds: r.video_duration_seconds,
+            duration_minutes: r.duration_minutes,
+            order: r.order_index,
+            is_preview: r.is_preview,
+            is_free: r.is_free,
+            created_at: r.created_at,
+        })
+        .collect())
 }
 
-pub async fn create_lesson(pool: &PgPool, req: &CreateLessonRequest) -> Result<Lesson, sqlx::Error> {
+pub async fn create_lesson(
+    pool: &PgPool,
+    req: &CreateLessonRequest,
+) -> Result<Lesson, sqlx::Error> {
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
     let order = req.order.unwrap_or(0);
@@ -283,9 +327,16 @@ pub async fn create_lesson(pool: &PgPool, req: &CreateLessonRequest) -> Result<L
         "INSERT INTO lessons (id, module_id, title, lesson_type, content, video_url, 
                             order_index, is_preview, is_free, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-        id, req.module_id, req.title, format!("{:?}", req.lesson_type).to_lowercase(),
-        req.content, req.video_url, order, req.is_preview.unwrap_or(false),
-        req.is_free.unwrap_or(false), now
+        id,
+        req.module_id,
+        req.title,
+        format!("{:?}", req.lesson_type).to_lowercase(),
+        req.content,
+        req.video_url,
+        order,
+        req.is_preview.unwrap_or(false),
+        req.is_free.unwrap_or(false),
+        now
     )
     .execute(pool)
     .await?;
@@ -354,12 +405,17 @@ pub async fn get_module_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Module>,
 }
 
 // Enrollment operations
-pub async fn get_enrollment(pool: &PgPool, user_id: Uuid, course_id: Uuid) -> Result<Option<Enrollment>, sqlx::Error> {
+pub async fn get_enrollment(
+    pool: &PgPool,
+    user_id: Uuid,
+    course_id: Uuid,
+) -> Result<Option<Enrollment>, sqlx::Error> {
     let row = sqlx::query!(
         "SELECT id, course_id, user_id, progress_percent, completed_lessons, 
                 started_at, completed_at, last_accessed_at
          FROM enrollments WHERE user_id = $1 AND course_id = $2",
-        user_id, course_id
+        user_id,
+        course_id
     )
     .fetch_optional(pool)
     .await?;
@@ -376,7 +432,11 @@ pub async fn get_enrollment(pool: &PgPool, user_id: Uuid, course_id: Uuid) -> Re
     }))
 }
 
-pub async fn create_enrollment(pool: &PgPool, user_id: Uuid, course_id: Uuid) -> Result<Enrollment, sqlx::Error> {
+pub async fn create_enrollment(
+    pool: &PgPool,
+    user_id: Uuid,
+    course_id: Uuid,
+) -> Result<Enrollment, sqlx::Error> {
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
 
@@ -389,9 +449,12 @@ pub async fn create_enrollment(pool: &PgPool, user_id: Uuid, course_id: Uuid) ->
     .await?;
 
     // Update enrollment count
-    sqlx::query!("UPDATE courses SET enrollment_count = enrollment_count + 1 WHERE id = $1", course_id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE courses SET enrollment_count = enrollment_count + 1 WHERE id = $1",
+        course_id
+    )
+    .execute(pool)
+    .await?;
 
     Ok(Enrollment {
         id,
@@ -405,12 +468,17 @@ pub async fn create_enrollment(pool: &PgPool, user_id: Uuid, course_id: Uuid) ->
     })
 }
 
-pub async fn get_progress(pool: &PgPool, user_id: Uuid, course_id: Uuid) -> Result<Option<CourseProgress>, sqlx::Error> {
+pub async fn get_progress(
+    pool: &PgPool,
+    user_id: Uuid,
+    course_id: Uuid,
+) -> Result<Option<CourseProgress>, sqlx::Error> {
     let row = sqlx::query!(
         "SELECT course_id, user_id, current_lesson_id, completed_modules, completed_lessons,
                 time_spent_seconds, progress_percent
          FROM course_progress WHERE user_id = $1 AND course_id = $2",
-        user_id, course_id
+        user_id,
+        course_id
     )
     .fetch_optional(pool)
     .await?;
@@ -426,7 +494,12 @@ pub async fn get_progress(pool: &PgPool, user_id: Uuid, course_id: Uuid) -> Resu
     }))
 }
 
-pub async fn mark_lesson_complete(pool: &PgPool, user_id: Uuid, course_id: Uuid, lesson_id: Uuid) -> Result<CourseProgress, sqlx::Error> {
+pub async fn mark_lesson_complete(
+    pool: &PgPool,
+    user_id: Uuid,
+    course_id: Uuid,
+    lesson_id: Uuid,
+) -> Result<CourseProgress, sqlx::Error> {
     // Simplified - in production use proper DB update
     Ok(CourseProgress {
         course_id,
@@ -440,16 +513,22 @@ pub async fn mark_lesson_complete(pool: &PgPool, user_id: Uuid, course_id: Uuid,
 }
 
 pub async fn count_enrollments(pool: &PgPool, course_id: Uuid) -> Result<i64, sqlx::Error> {
-    let row = sqlx::query!("SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1", course_id)
-        .fetch_one(pool)
-        .await?;
+    let row = sqlx::query!(
+        "SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1",
+        course_id
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(row.count)
 }
 
 pub async fn avg_progress(pool: &PgPool, course_id: Uuid) -> Result<f32, sqlx::Error> {
-    let row = sqlx::query!("SELECT AVG(progress_percent) as avg FROM enrollments WHERE course_id = $1", course_id)
-        .fetch_one(pool)
-        .await?;
+    let row = sqlx::query!(
+        "SELECT AVG(progress_percent) as avg FROM enrollments WHERE course_id = $1",
+        course_id
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(row.avg.unwrap_or(0.0) as f32)
 }
 

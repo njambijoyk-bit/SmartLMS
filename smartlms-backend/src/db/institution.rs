@@ -1,5 +1,5 @@
 // Database operations for institutions (master database)
-use crate::models::institution::{Institution, CreateInstitutionRequest, UpdateInstitutionRequest};
+use crate::models::institution::{CreateInstitutionRequest, Institution, UpdateInstitutionRequest};
 use sqlx::{PgPool, Row};
 
 /// Find institution by slug in master database
@@ -33,7 +33,10 @@ pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Institutio
 }
 
 /// Find institution by custom domain
-pub async fn find_by_domain(pool: &PgPool, domain: &str) -> Result<Option<Institution>, sqlx::Error> {
+pub async fn find_by_domain(
+    pool: &PgPool,
+    domain: &str,
+) -> Result<Option<Institution>, sqlx::Error> {
     let row = sqlx::query!(
         r#"
         SELECT id, slug, name, domain, database_url, config, plan_tier, 
@@ -63,9 +66,13 @@ pub async fn find_by_domain(pool: &PgPool, domain: &str) -> Result<Option<Instit
 }
 
 /// List all institutions with pagination
-pub async fn list(pool: &PgPool, page: i64, per_page: i64) -> Result<(Vec<Institution>, i64), sqlx::Error> {
+pub async fn list(
+    pool: &PgPool,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Institution>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
-    
+
     let rows = sqlx::query!(
         r#"
         SELECT id, slug, name, domain, database_url, config, plan_tier, 
@@ -85,26 +92,32 @@ pub async fn list(pool: &PgPool, page: i64, per_page: i64) -> Result<(Vec<Instit
         .await?
         .count;
 
-    let institutions = rows.into_iter().map(|r| Institution {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        domain: r.domain,
-        database_url: r.database_url,
-        config: None,
-        plan_tier: None,
-        quotas: None,
-        license_key: r.license_key,
-        is_active: r.is_active,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    }).collect();
+    let institutions = rows
+        .into_iter()
+        .map(|r| Institution {
+            id: r.id,
+            slug: r.slug,
+            name: r.name,
+            domain: r.domain,
+            database_url: r.database_url,
+            config: None,
+            plan_tier: None,
+            quotas: None,
+            license_key: r.license_key,
+            is_active: r.is_active,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        })
+        .collect();
 
     Ok((institutions, total))
 }
 
 /// Create new institution
-pub async fn create(pool: &PgPool, req: &CreateInstitutionRequest) -> Result<Institution, sqlx::Error> {
+pub async fn create(
+    pool: &PgPool,
+    req: &CreateInstitutionRequest,
+) -> Result<Institution, sqlx::Error> {
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
 
@@ -140,9 +153,13 @@ pub async fn create(pool: &PgPool, req: &CreateInstitutionRequest) -> Result<Ins
 }
 
 /// Update institution
-pub async fn update(pool: &PgPool, id: uuid::Uuid, req: &UpdateInstitutionRequest) -> Result<Option<Institution>, sqlx::Error> {
+pub async fn update(
+    pool: &PgPool,
+    id: uuid::Uuid,
+    req: &UpdateInstitutionRequest,
+) -> Result<Option<Institution>, sqlx::Error> {
     let now = chrono::Utc::now();
-    
+
     sqlx::query!(
         r#"
         UPDATE institutions 
@@ -190,7 +207,7 @@ pub async fn update(pool: &PgPool, id: uuid::Uuid, req: &UpdateInstitutionReques
 /// Delete (deactivate) institution
 pub async fn delete(pool: &PgPool, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
     let now = chrono::Utc::now();
-    
+
     let rows = sqlx::query!(
         "UPDATE institutions SET is_active = false, updated_at = $1 WHERE id = $2",
         now,

@@ -1,7 +1,7 @@
 // Certificate Service - Issue certificates with QR verification
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Certificate template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct Certificate {
     pub template_id: uuid::Uuid,
     pub recipient_user_id: uuid::Uuid,
     pub course_id: Option<uuid::Uuid>,
-    pub credential_id: String,  // Unique ID for verification
+    pub credential_id: String, // Unique ID for verification
     pub qr_code_url: String,
     pub recipient_name: String,
     pub issue_date: DateTime<Utc>,
@@ -64,7 +64,7 @@ pub struct VerificationResponse {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Create certificate template
     pub async fn create_template(
         pool: &PgPool,
@@ -74,18 +74,22 @@ pub mod service {
         content_html: &str,
     ) -> Result<CertificateTemplate, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO certificate_templates (id, institution_id, name, template_type, 
              content_html, is_default, created_at)
              VALUES ($1, $2, $3, $4, $5, false, $6)",
-            id, institution_id, name, format!("{:?}", template_type).to_lowercase(),
-            content_html, Utc::now()
+            id,
+            institution_id,
+            name,
+            format!("{:?}", template_type).to_lowercase(),
+            content_html,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(CertificateTemplate {
             id,
             institution_id,
@@ -99,7 +103,7 @@ pub mod service {
             is_default: false,
         })
     }
-    
+
     /// Issue certificate to user
     pub async fn issue_certificate(
         pool: &PgPool,
@@ -110,25 +114,36 @@ pub mod service {
     ) -> Result<Certificate, String> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         // Generate unique credential ID
-        let credential_id = format!("CERT-{}-{}", now.format("%Y%m%d"), &Uuid::new_v4().to_string()[..8].to_uppercase());
-        
+        let credential_id = format!(
+            "CERT-{}-{}",
+            now.format("%Y%m%d"),
+            &Uuid::new_v4().to_string()[..8].to_uppercase()
+        );
+
         // Generate QR code (verification URL)
         let qr_code_url = format!("/verify/{}", credential_id);
-        
+
         sqlx::query!(
             "INSERT INTO certificates (id, template_id, recipient_user_id, course_id, 
              credential_id, qr_code_url, recipient_name, issue_date, status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')",
-            id, template_id, user_id, course_id, credential_id, qr_code_url, recipient_name, now
+            id,
+            template_id,
+            user_id,
+            course_id,
+            credential_id,
+            qr_code_url,
+            recipient_name,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // In production: generate PDF and upload to storage
-        
+
         Ok(Certificate {
             id,
             template_id,
@@ -144,7 +159,7 @@ pub mod service {
             pdf_url: None,
         })
     }
-    
+
     /// Verify certificate by credential ID
     pub async fn verify_certificate(
         pool: &PgPool,
@@ -162,10 +177,10 @@ pub mod service {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         match row {
             Some(r) => {
-                let status = if r.status == "active" { 
+                let status = if r.status == "active" {
                     // Check if expired
                     if let Some(exp) = r.expiry_date {
                         if exp < Utc::now() {
@@ -179,7 +194,7 @@ pub mod service {
                 } else {
                     CertificateStatus::Revoked
                 };
-                
+
                 Ok(VerificationResponse {
                     valid: status == CertificateStatus::Active,
                     certificate: Some(Certificate {
@@ -210,7 +225,7 @@ pub mod service {
             }),
         }
     }
-    
+
     /// Revoke certificate
     pub async fn revoke_certificate(
         pool: &PgPool,
@@ -224,13 +239,17 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Log revocation
-        tracing::info!("Certificate {} revoked. Reason: {:?}", certificate_id, reason);
-        
+        tracing::info!(
+            "Certificate {} revoked. Reason: {:?}",
+            certificate_id,
+            reason
+        );
+
         Ok(())
     }
-    
+
     /// Get user's certificates
     pub async fn get_user_certificates(
         pool: &PgPool,
@@ -246,20 +265,23 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| Certificate {
-            id: r.id,
-            template_id: r.template_id,
-            recipient_user_id: r.recipient_user_id,
-            course_id: r.course_id,
-            credential_id: r.credential_id,
-            qr_code_url: r.qr_code_url,
-            recipient_name: r.recipient_name,
-            issue_date: r.issue_date,
-            expiry_date: r.expiry_date,
-            metadata: std::collections::HashMap::new(),
-            status: CertificateStatus::Active,
-            pdf_url: r.pdf_url,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Certificate {
+                id: r.id,
+                template_id: r.template_id,
+                recipient_user_id: r.recipient_user_id,
+                course_id: r.course_id,
+                credential_id: r.credential_id,
+                qr_code_url: r.qr_code_url,
+                recipient_name: r.recipient_name,
+                issue_date: r.issue_date,
+                expiry_date: r.expiry_date,
+                metadata: std::collections::HashMap::new(),
+                status: CertificateStatus::Active,
+                pdf_url: r.pdf_url,
+            })
+            .collect())
     }
 }

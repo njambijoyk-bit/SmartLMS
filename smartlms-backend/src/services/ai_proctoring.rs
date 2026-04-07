@@ -1,7 +1,7 @@
 // AI Proctoring Service - Face detection, anomaly detection
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Face detection result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,7 +82,7 @@ pub struct FaceAnalysisSummary {
 
 pub mod ai_analysis {
     use super::*;
-    
+
     /// Analyze proctoring session for anomalies
     pub async fn analyze_session(
         session_id: uuid::Uuid,
@@ -93,11 +93,11 @@ pub mod ai_analysis {
         let mut face_present = 0;
         let mut multiple_faces = 0;
         let mut no_face = 0;
-        
+
         // Analyze each frame (simplified - in production use ML model)
         for (i, frame_url) in frame_urls.iter().enumerate() {
             let result = analyze_frame(frame_url).await?;
-            
+
             if result.faces_detected == 0 {
                 no_face += 1;
             } else if result.faces_detected == 1 {
@@ -107,39 +107,41 @@ pub mod ai_analysis {
                 anomalies += 1;
             }
         }
-        
+
         let total_frames = frame_urls.len() as f64;
-        let face_present_pct = if total_frames > 0.0 { face_present / total_frames } else { 0.0 };
-        
+        let face_present_pct = if total_frames > 0.0 {
+            face_present / total_frames
+        } else {
+            0.0
+        };
+
         // Calculate risk score
-        let risk_score = calculate_risk_score(
-            no_face,
-            multiple_faces,
-            violations,
-            face_present_pct,
-        );
-        
+        let risk_score =
+            calculate_risk_score(no_face, multiple_faces, violations, face_present_pct);
+
         let assessment = match risk_score {
             s if s < 0.2 => AssessmentLevel::Clear,
             s if s < 0.5 => AssessmentLevel::Suspicious,
             s if s < 0.8 => AssessmentLevel::Flagged,
             _ => AssessmentLevel::Critical,
         };
-        
+
         let mut recommendations = Vec::new();
-        
+
         if face_present_pct < 0.7 {
             recommendations.push("Student was not consistently visible on camera".to_string());
         }
-        
+
         if multiple_faces > 0 {
-            recommendations.push("Multiple faces detected - possible assistance from another person".to_string());
+            recommendations.push(
+                "Multiple faces detected - possible assistance from another person".to_string(),
+            );
         }
-        
+
         if no_face > 5 {
             recommendations.push("Extended periods without face visible - investigate".to_string());
         }
-        
+
         Ok(AnalysisResult {
             session_id,
             risk_score,
@@ -157,14 +159,14 @@ pub mod ai_analysis {
             analyzed_at: Utc::now(),
         })
     }
-    
+
     /// Analyze single frame for face detection
     pub async fn analyze_frame(frame_url: &str) -> Result<FaceDetectionResult, String> {
         // In production: call actual ML model
         // For now, return simulated result
-        
+
         Ok(FaceDetectionResult {
-            faces_detected: 1,  // Simulate single face
+            faces_detected: 1, // Simulate single face
             face_positions: vec![FacePosition {
                 x: 100,
                 y: 50,
@@ -175,30 +177,30 @@ pub mod ai_analysis {
             timestamp: Utc::now(),
         })
     }
-    
+
     /// Detect anomalies in audio
     pub async fn detect_audio_anomalies(
         session_id: uuid::Uuid,
         audio_url: &str,
     ) -> Result<Vec<AnomalyResult>, String> {
         // In production: use audio analysis ML model
-        
+
         Ok(vec![])
     }
-    
+
     /// Detect suspicious movements
     pub async fn detect_suspicious_movement(
         session_id: uuid::Uuid,
         frame_sequence: Vec<String>,
     ) -> Result<Vec<AnomalyResult>, String> {
         let mut anomalies = Vec::new();
-        
+
         // Compare frames for sudden movements
         // Simplified - in production use optical flow
-        
+
         Ok(anomalies)
     }
-    
+
     fn calculate_risk_score(
         no_face: i32,
         multiple_faces: i32,
@@ -206,23 +208,23 @@ pub mod ai_analysis {
         face_present_pct: f64,
     ) -> f64 {
         let mut score = 0.0;
-        
+
         // No face contributes to risk
         score += (no_face as f64) * 0.1;
-        
+
         // Multiple faces is high risk
         score += (multiple_faces as f64) * 0.3;
-        
+
         // Violations contribute
         score += (violations as f64) * 0.15;
-        
+
         // Low face presence is risky
         if face_present_pct < 0.5 {
             score += 0.3;
         } else if face_present_pct < 0.7 {
             score += 0.15;
         }
-        
+
         score.min(1.0)
     }
 }
@@ -238,7 +240,7 @@ pub mod liveness {
         pub check_failed: Vec<String>,
         pub attempt_number: i32,
     }
-    
+
     /// Verify liveness with challenge-response
     pub async fn verify_liveness(
         video_url: &str,
@@ -250,7 +252,7 @@ pub mod liveness {
         // - Head movement
         // - Face rotation
         // - No static image/photo
-        
+
         Ok(LivenessResult {
             is_live: true,
             confidence: 0.92,
@@ -259,21 +261,21 @@ pub mod liveness {
             attempt_number: 1,
         })
     }
-    
+
     /// Compare face photos for identity match
     pub async fn compare_faces(
         photo1_url: &str,
         photo2_url: &str,
     ) -> Result<FaceMatchResult, String> {
         // In production: use face recognition API
-        
+
         Ok(FaceMatchResult {
             is_match: true,
             similarity_score: 0.94,
             algorithm_version: "1.0.0".to_string(),
         })
     }
-    
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct FaceMatchResult {
         pub is_match: bool,

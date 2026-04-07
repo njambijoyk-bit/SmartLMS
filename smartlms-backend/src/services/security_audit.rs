@@ -1,7 +1,7 @@
 // Security & Audit Service - Security hardening, compliance, audit logging
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Audit log entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,7 +86,7 @@ pub struct ApiKey {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Log audit event
     pub async fn log_audit(
         pool: &PgPool,
@@ -99,18 +99,25 @@ pub mod service {
         ip_address: Option<&str>,
     ) -> Result<AuditLog, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO audit_logs (id, user_id, institution_id, action, resource_type,
              resource_id, details, ip_address, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            id, user_id, institution_id, action, resource_type, resource_id, 
-            details, ip_address, Utc::now()
+            id,
+            user_id,
+            institution_id,
+            action,
+            resource_type,
+            resource_id,
+            details,
+            ip_address,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(AuditLog {
             id,
             user_id,
@@ -124,7 +131,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Get audit logs with filters
     pub async fn get_audit_logs(
         pool: &PgPool,
@@ -142,26 +149,30 @@ pub mod service {
              FROM audit_logs 
              WHERE institution_id = $1
              ORDER BY created_at DESC LIMIT $2",
-            institution_id, limit
+            institution_id,
+            limit
         )
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| AuditLog {
-            id: r.id,
-            user_id: r.user_id,
-            institution_id: r.institution_id,
-            action: r.action,
-            resource_type: r.resource_type,
-            resource_id: r.resource_id,
-            details: r.details,
-            ip_address: r.ip_address,
-            user_agent: r.user_agent,
-            created_at: r.created_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| AuditLog {
+                id: r.id,
+                user_id: r.user_id,
+                institution_id: r.institution_id,
+                action: r.action,
+                resource_type: r.resource_type,
+                resource_id: r.resource_id,
+                details: r.details,
+                ip_address: r.ip_address,
+                user_agent: r.user_agent,
+                created_at: r.created_at,
+            })
+            .collect())
     }
-    
+
     /// Log security event
     pub async fn log_security_event(
         pool: &PgPool,
@@ -172,23 +183,28 @@ pub mod service {
         ip_address: Option<&str>,
     ) -> Result<SecurityEvent, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO security_events (id, event_type, severity, user_id, ip_address,
              description, resolved, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, false, $7)",
-            id, format!("{:?}", event_type).to_lowercase(), format!("{:?}", severity).to_lowercase(),
-            user_id, ip_address, description, Utc::now()
+            id,
+            format!("{:?}", event_type).to_lowercase(),
+            format!("{:?}", severity).to_lowercase(),
+            user_id,
+            ip_address,
+            description,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Alert if critical
         if severity == EventSeverity::Critical {
             tracing::error!("SECURITY ALERT: {} - {}", event_type, description);
         }
-        
+
         Ok(SecurityEvent {
             id,
             event_type,
@@ -201,7 +217,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Get unresolved security events
     pub async fn get_security_alerts(
         pool: &PgPool,
@@ -218,33 +234,36 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| SecurityEvent {
-            id: r.id,
-            event_type: SecurityEventType::LoginSuccess,
-            severity: EventSeverity::Info,
-            user_id: r.user_id,
-            ip_address: r.ip_address,
-            description: r.description,
-            metadata: serde_json::from_str(&r.metadata).unwrap_or_default(),
-            resolved: r.resolved,
-            created_at: r.created_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| SecurityEvent {
+                id: r.id,
+                event_type: SecurityEventType::LoginSuccess,
+                severity: EventSeverity::Info,
+                user_id: r.user_id,
+                ip_address: r.ip_address,
+                description: r.description,
+                metadata: serde_json::from_str(&r.metadata).unwrap_or_default(),
+                resolved: r.resolved,
+                created_at: r.created_at,
+            })
+            .collect())
     }
-    
+
     /// Resolve security event
-    pub async fn resolve_security_event(
-        pool: &PgPool,
-        event_id: uuid::Uuid,
-    ) -> Result<(), String> {
-        sqlx::query!("UPDATE security_events SET resolved = true WHERE id = $1", event_id)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        
+    pub async fn resolve_security_event(pool: &PgPool, event_id: uuid::Uuid) -> Result<(), String> {
+        sqlx::query!(
+            "UPDATE security_events SET resolved = true WHERE id = $1",
+            event_id
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
         Ok(())
     }
-    
+
     /// Generate API key
     pub async fn create_api_key(
         pool: &PgPool,
@@ -253,11 +272,11 @@ pub mod service {
         permissions: Vec<String>,
     ) -> Result<(ApiKey, String), String> {
         let id = Uuid::new_v4();
-        
+
         // Generate secure random key
         let key = generate_secure_token(32);
         let key_hash = hash_token(&key);
-        
+
         sqlx::query!(
             "INSERT INTO api_keys (id, institution_id, name, key_hash, permissions, is_active, created_at)
              VALUES ($1, $2, $3, $4, $5, true, $6)",
@@ -266,27 +285,27 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok((ApiKey {
-            id,
-            institution_id,
-            name: name.to_string(),
-            key_hash,
-            permissions,
-            last_used_at: None,
-            expires_at: None,
-            is_active: true,
-            created_at: Utc::now(),
-        }, key))  // Return the raw key - only shown once!
+
+        Ok((
+            ApiKey {
+                id,
+                institution_id,
+                name: name.to_string(),
+                key_hash,
+                permissions,
+                last_used_at: None,
+                expires_at: None,
+                is_active: true,
+                created_at: Utc::now(),
+            },
+            key,
+        )) // Return the raw key - only shown once!
     }
-    
+
     /// Validate API key
-    pub async fn validate_api_key(
-        pool: &PgPool,
-        key: &str,
-    ) -> Result<Option<ApiKey>, String> {
+    pub async fn validate_api_key(pool: &PgPool, key: &str) -> Result<Option<ApiKey>, String> {
         let key_hash = hash_token(key);
-        
+
         let row = sqlx::query!(
             "SELECT id, institution_id, name, key_hash, permissions, last_used_at,
              expires_at, is_active, created_at
@@ -296,15 +315,19 @@ pub mod service {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Update last used
         if let Some(r) = &row {
-            sqlx::query!("UPDATE api_keys SET last_used_at = $1 WHERE id = $2", Utc::now(), r.id)
-                .execute(pool)
-                .await
-                .ok();
+            sqlx::query!(
+                "UPDATE api_keys SET last_used_at = $1 WHERE id = $2",
+                Utc::now(),
+                r.id
+            )
+            .execute(pool)
+            .await
+            .ok();
         }
-        
+
         Ok(row.map(|r| ApiKey {
             id: r.id,
             institution_id: r.institution_id,
@@ -317,20 +340,20 @@ pub mod service {
             created_at: r.created_at,
         }))
     }
-    
+
     /// Revoke API key
-    pub async fn revoke_api_key(
-        pool: &PgPool,
-        key_id: uuid::Uuid,
-    ) -> Result<(), String> {
-        sqlx::query!("UPDATE api_keys SET is_active = false WHERE id = $1", key_id)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        
+    pub async fn revoke_api_key(pool: &PgPool, key_id: uuid::Uuid) -> Result<(), String> {
+        sqlx::query!(
+            "UPDATE api_keys SET is_active = false WHERE id = $1",
+            key_id
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
         Ok(())
     }
-    
+
     /// Get access policy
     pub async fn get_access_policy(
         pool: &PgPool,
@@ -345,24 +368,26 @@ pub mod service {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(row.map(|r| AccessPolicy {
-            id: r.id,
-            institution_id: r.institution_id,
-            max_concurrent_sessions: r.max_concurrent_sessions,
-            session_timeout_minutes: r.session_timeout_minutes,
-            require_mfa: r.require_mfa,
-            allowed_ip_ranges: serde_json::from_str(&r.allowed_ip_ranges).unwrap_or_default(),
-            blocked_countries: serde_json::from_str(&r.blocked_countries).unwrap_or_default(),
-        }).unwrap_or(AccessPolicy {
-            id: Uuid::new_v4(),
-            institution_id,
-            max_concurrent_sessions: 3,
-            session_timeout_minutes: 480,
-            require_mfa: false,
-            allowed_ip_ranges: vec![],
-            blocked_countries: vec![],
-        }))
+
+        Ok(row
+            .map(|r| AccessPolicy {
+                id: r.id,
+                institution_id: r.institution_id,
+                max_concurrent_sessions: r.max_concurrent_sessions,
+                session_timeout_minutes: r.session_timeout_minutes,
+                require_mfa: r.require_mfa,
+                allowed_ip_ranges: serde_json::from_str(&r.allowed_ip_ranges).unwrap_or_default(),
+                blocked_countries: serde_json::from_str(&r.blocked_countries).unwrap_or_default(),
+            })
+            .unwrap_or(AccessPolicy {
+                id: Uuid::new_v4(),
+                institution_id,
+                max_concurrent_sessions: 3,
+                session_timeout_minutes: 480,
+                require_mfa: false,
+                allowed_ip_ranges: vec![],
+                blocked_countries: vec![],
+            }))
     }
 }
 
@@ -379,7 +404,7 @@ fn generate_secure_token(length: usize) -> String {
 }
 
 fn hash_token(token: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     format!("{:x}", hasher.finalize())

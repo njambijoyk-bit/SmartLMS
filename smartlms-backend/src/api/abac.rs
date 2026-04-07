@@ -1,14 +1,14 @@
 // ABAC Policy API routes - CRUD for policies
-use axum::{
-    extract::{State, Json, Path, Query, Extension},
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post, put, delete},
-    Router,
-};
 use crate::models::abac::*;
 use crate::services::abac as abac_service;
 use crate::tenant::InstitutionCtx;
+use axum::{
+    extract::{Extension, Json, Path, Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{delete, get, post, put},
+    Router,
+};
 use serde::Deserialize;
 
 /// List policies for an institution
@@ -49,7 +49,7 @@ pub async fn create_policy(
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
-    
+
     // In production, save to DB
     Ok(Json(policy))
 }
@@ -76,7 +76,7 @@ pub async fn update_policy(
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
-    
+
     Ok(Json(policy))
 }
 
@@ -105,7 +105,7 @@ pub async fn test_policy(
         resource_attributes: req.resource_attributes,
         environment: req.environment,
     };
-    
+
     // If policy_id provided, test that specific policy
     if let Some(policy_id) = req.policy_id {
         // Fetch policy and evaluate
@@ -116,7 +116,7 @@ pub async fn test_policy(
         };
         return Ok(Json(result));
     }
-    
+
     // Otherwise evaluate against all enabled policies
     let result = abac_service::evaluate_access(&request, &[]);
     Ok(Json(result))

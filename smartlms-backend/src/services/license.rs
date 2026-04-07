@@ -1,7 +1,7 @@
 // License server - validates license keys, enforces plan tiers, quota limits
 use crate::tenant::{PlanTier, QuotaLimits};
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// License key details
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,30 +34,55 @@ impl FeatureMatrix {
         match feature {
             // Starter features
             "courses" | "assessments" | "grades" | "discussions" => true,
-            "live_classes" | "video_hosting" => matches!(plan, PlanTier::Growth | PlanTier::Enterprise),
-            "advanced_analytics" | "api_access" => matches!(plan, PlanTier::Growth | PlanTier::Enterprise),
-            "proctoring" | "custom_domain" | "white_label" => matches!(plan, PlanTier::Growth | PlanTier::Enterprise),
+            "live_classes" | "video_hosting" => {
+                matches!(plan, PlanTier::Growth | PlanTier::Enterprise)
+            }
+            "advanced_analytics" | "api_access" => {
+                matches!(plan, PlanTier::Growth | PlanTier::Enterprise)
+            }
+            "proctoring" | "custom_domain" | "white_label" => {
+                matches!(plan, PlanTier::Growth | PlanTier::Enterprise)
+            }
             "priority_support" | "dedicated_infra" | "sla" => matches!(plan, PlanTier::Enterprise),
-            "ml_engine" | "adaptive_learning" => matches!(plan, PlanTier::Growth | PlanTier::Enterprise),
-            "library" | "employer_portal" | "competency_tracking" => matches!(plan, PlanTier::Enterprise),
+            "ml_engine" | "adaptive_learning" => {
+                matches!(plan, PlanTier::Growth | PlanTier::Enterprise)
+            }
+            "library" | "employer_portal" | "competency_tracking" => {
+                matches!(plan, PlanTier::Enterprise)
+            }
             _ => false,
         }
     }
-    
+
     /// Get all features for a plan
     pub fn features_for_plan(plan: PlanTier) -> Vec<&'static str> {
-        let mut features = vec![
-            "courses", "assessments", "grades", "discussions",
-        ];
-        
+        let mut features = vec!["courses", "assessments", "grades", "discussions"];
+
         if matches!(plan, PlanTier::Growth | PlanTier::Enterprise) {
-            features.extend(["live_classes", "video_hosting", "advanced_analytics", "api_access", "proctoring", "custom_domain", "white_label", "ml_engine", "adaptive_learning"]);
+            features.extend([
+                "live_classes",
+                "video_hosting",
+                "advanced_analytics",
+                "api_access",
+                "proctoring",
+                "custom_domain",
+                "white_label",
+                "ml_engine",
+                "adaptive_learning",
+            ]);
         }
-        
+
         if matches!(plan, PlanTier::Enterprise) {
-            features.extend(["priority_support", "dedicated_infra", "sla", "library", "employer_portal", "competency_tracking"]);
+            features.extend([
+                "priority_support",
+                "dedicated_infra",
+                "sla",
+                "library",
+                "employer_portal",
+                "competency_tracking",
+            ]);
         }
-        
+
         features
     }
 }
@@ -77,7 +102,7 @@ pub fn validate_license(key: &str) -> Result<LicenseStatus, String> {
     // 1. Check license format (encrypted, signed)
     // 2. Query license server or cache
     // 3. Verify expiration
-    
+
     // Demo implementation - decode from format: PLAN-XXXX-XXXX-XXXX
     let parts: Vec<&str> = key.split('-').collect();
     if parts.len() != 4 {
@@ -89,14 +114,14 @@ pub fn validate_license(key: &str) -> Result<LicenseStatus, String> {
             message: Some("Invalid license key format".to_string()),
         });
     }
-    
+
     let plan = match parts[0] {
         "STARTER" => PlanTier::Starter,
         "GROWTH" => PlanTier::Growth,
         "ENTERPRISE" => PlanTier::Enterprise,
         _ => PlanTier::Starter,
     };
-    
+
     let quotas = match plan {
         PlanTier::Starter => QuotaLimits {
             max_users: 1000,
@@ -117,7 +142,7 @@ pub fn validate_license(key: &str) -> Result<LicenseStatus, String> {
             max_concurrent_users: i64::MAX,
         },
     };
-    
+
     Ok(LicenseStatus {
         valid: true,
         plan,
@@ -147,7 +172,7 @@ pub fn generate_license_key(plan: PlanTier) -> String {
         PlanTier::Growth => "GROWTH",
         PlanTier::Enterprise => "ENTERPRISE",
     };
-    
+
     let random: String = (0..3)
         .map(|_| {
             let idx = rand::random::<u8>() % 36;
@@ -158,6 +183,6 @@ pub fn generate_license_key(plan: PlanTier) -> String {
             }
         })
         .collect();
-    
+
     format!("{}-{}000-0000-0000", prefix, random)
 }

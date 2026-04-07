@@ -1,7 +1,7 @@
 // Clearance System — Multi-department student clearance before certificate/transcript release
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// A clearance department (Library, Finance, Hostel, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]

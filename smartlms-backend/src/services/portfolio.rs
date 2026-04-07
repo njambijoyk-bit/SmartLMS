@@ -1,16 +1,16 @@
 // Student Portfolio System — Academic, competency, project, and career portfolios
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Portfolio type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PortfolioType {
-    Academic,    // curated best work across all courses
-    Competency,  // evidence mapped to CBE nodes
-    Project,     // showcase of major projects
-    Career,      // public-facing, employer-ready
+    Academic,   // curated best work across all courses
+    Competency, // evidence mapped to CBE nodes
+    Project,    // showcase of major projects
+    Career,     // public-facing, employer-ready
 }
 
 /// A student portfolio
@@ -37,7 +37,10 @@ pub struct Portfolio {
 pub enum SharingMode {
     Private,
     ShareWithAdvisor,
-    SharedWithEmployer { employer_id: Uuid, expires_at: DateTime<Utc> },
+    SharedWithEmployer {
+        employer_id: Uuid,
+        expires_at: DateTime<Utc>,
+    },
     Public,
 }
 
@@ -53,7 +56,7 @@ pub struct PortfolioItem {
     pub source: ItemSource,
     pub file_urls: Vec<String>,
     pub external_url: Option<String>,
-    pub competency_node_ids: Vec<Uuid>,  // CBE nodes this item evidences
+    pub competency_node_ids: Vec<Uuid>, // CBE nodes this item evidences
     pub grade: Option<String>,
     pub instructor_endorsement: Option<InstructorEndorsement>,
     pub date_created: DateTime<Utc>,
@@ -77,7 +80,10 @@ pub enum PortfolioItemType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemSource {
-    CourseSubmission { course_id: Uuid, assignment_id: Uuid },
+    CourseSubmission {
+        course_id: Uuid,
+        assignment_id: Uuid,
+    },
     External,
     Manual,
 }

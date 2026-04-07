@@ -1,4 +1,6 @@
 // Authentication middleware - validates JWT tokens on protected routes
+use crate::models::user::User;
+use crate::services::auth::jwt;
 use axum::{
     body::Body,
     extract::{Request, State},
@@ -6,8 +8,6 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use crate::models::user::User;
-use crate::services::auth::jwt;
 
 pub type AuthUser = User;
 
@@ -22,17 +22,17 @@ pub async fn auth_middleware(
     if is_public_route(path) {
         return next.run(request).await;
     }
-    
+
     // Extract Authorization header
     let auth_header = request
         .headers()
         .get(AUTHORIZATION)
         .and_then(|h| h.to_str().ok());
-    
+
     let token = auth_header
         .and_then(|h| h.strip_prefix("Bearer "))
         .or_else(|| auth_header);
-    
+
     // Validate token and get user
     if let Some(token_str) = token {
         match jwt::validate_token(token_str) {
@@ -53,7 +53,7 @@ pub async fn auth_middleware(
             }
         }
     }
-    
+
     next.run(request).await
 }
 
@@ -66,15 +66,11 @@ fn is_public_route(path: &str) -> bool {
 }
 
 pub mod axum_extract {
-    use axum::{
-        extract::Extension,
-    };
     use super::AuthUser;
-    
+    use axum::extract::Extension;
+
     /// Extension extractor for authenticated user
-    pub async fn auth_user(
-        Extension(user): Extension<AuthUser>,
-    ) -> AuthUser {
+    pub async fn auth_user(Extension(user): Extension<AuthUser>) -> AuthUser {
         user
     }
 }

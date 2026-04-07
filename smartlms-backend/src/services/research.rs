@@ -1,7 +1,7 @@
 // Research & Postgraduate Supervision — Thesis management, milestones, chapter reviews
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Research project types
 #[derive(Debug, Clone, Serialize, Deserialize)]

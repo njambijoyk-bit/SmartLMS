@@ -1,6 +1,6 @@
 // Backup model - backup records, schedules, verification
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Backup type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

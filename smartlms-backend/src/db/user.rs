@@ -74,7 +74,11 @@ pub async fn create(
 }
 
 /// Update user password
-pub async fn update_password(pool: &PgPool, user_id: uuid::Uuid, new_hash: &str) -> Result<bool, sqlx::Error> {
+pub async fn update_password(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    new_hash: &str,
+) -> Result<bool, sqlx::Error> {
     let rows = sqlx::query!(
         "UPDATE users SET password_hash = $1 WHERE id = $2",
         new_hash,
@@ -87,7 +91,11 @@ pub async fn update_password(pool: &PgPool, user_id: uuid::Uuid, new_hash: &str)
 }
 
 /// List users with pagination
-pub async fn list(pool: &PgPool, page: i64, per_page: i64) -> Result<(Vec<User>, i64), sqlx::Error> {
+pub async fn list(
+    pool: &PgPool,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<User>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
 
     let rows = sqlx::query!(
@@ -103,14 +111,17 @@ pub async fn list(pool: &PgPool, page: i64, per_page: i64) -> Result<(Vec<User>,
         .await?
         .count;
 
-    let users = rows.into_iter().map(|r| User {
-        id: r.id,
-        email: r.email,
-        password_hash: r.password_hash,
-        first_name: r.first_name,
-        last_name: r.last_name,
-        role: r.role,
-    }).collect();
+    let users = rows
+        .into_iter()
+        .map(|r| User {
+            id: r.id,
+            email: r.email,
+            password_hash: r.password_hash,
+            first_name: r.first_name,
+            last_name: r.last_name,
+            role: r.role,
+        })
+        .collect();
 
     Ok((users, total))
 }

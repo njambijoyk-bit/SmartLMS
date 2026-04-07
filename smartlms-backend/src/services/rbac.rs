@@ -9,44 +9,44 @@ pub enum Permission {
     UsersRead,
     UsersUpdate,
     UsersDelete,
-    
+
     // Courses
     CoursesCreate,
     CoursesRead,
     CoursesUpdate,
     CoursesDelete,
     CoursesPublish,
-    
+
     // Enrollments
     EnrollmentsCreate,
     EnrollmentsRead,
     EnrollmentsUpdate,
     EnrollmentsDelete,
-    
+
     // Assessments
     AssessmentsCreate,
     AssessmentsRead,
     AssessmentsUpdate,
     AssessmentsDelete,
     AssessmentsGrade,
-    
+
     // Grades
     GradesRead,
     GradesWrite,
     GradesExport,
-    
+
     // Reports
     ReportsView,
     ReportsExport,
-    
+
     // Settings
     SettingsRead,
     SettingsUpdate,
-    
+
     // Institution
     InstitutionManage,
     InstitutionUsers,
-    
+
     // Billing (Growth+)
     BillingManage,
 }
@@ -90,17 +90,17 @@ impl Permission {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Role {
     // System roles
-    SuperAdmin,    // Can manage all institutions
-    
+    SuperAdmin, // Can manage all institutions
+
     // Institution roles
-    Admin,         // Full institution control
-    Instructor,    // Can create/manage courses
-    Learner,       // Can take courses
-    Observer,      // View-only, no modifications
-    Parent,        // Guardian view of child progress
-    Advisor,       // Academic advisor
-    Counsellor,    // Student welfare
-    Alumni,        // Past student access
+    Admin,      // Full institution control
+    Instructor, // Can create/manage courses
+    Learner,    // Can take courses
+    Observer,   // View-only, no modifications
+    Parent,     // Guardian view of child progress
+    Advisor,    // Academic advisor
+    Counsellor, // Student welfare
+    Alumni,     // Past student access
 }
 
 impl Role {
@@ -108,41 +108,76 @@ impl Role {
     pub fn permissions(&self) -> Vec<Permission> {
         match self {
             Role::SuperAdmin => vec![
-                Permission::UsersCreate, Permission::UsersRead, 
-                Permission::UsersUpdate, Permission::UsersDelete,
-                Permission::CoursesCreate, Permission::CoursesRead,
-                Permission::CoursesUpdate, Permission::CoursesDelete, Permission::CoursesPublish,
-                Permission::EnrollmentsCreate, Permission::EnrollmentsRead,
-                Permission::EnrollmentsUpdate, Permission::EnrollmentsDelete,
-                Permission::AssessmentsCreate, Permission::AssessmentsRead,
-                Permission::AssessmentsUpdate, Permission::AssessmentsDelete, Permission::AssessmentsGrade,
-                Permission::GradesRead, Permission::GradesWrite, Permission::GradesExport,
-                Permission::ReportsView, Permission::ReportsExport,
-                Permission::SettingsRead, Permission::SettingsUpdate,
-                Permission::InstitutionManage, Permission::InstitutionUsers,
+                Permission::UsersCreate,
+                Permission::UsersRead,
+                Permission::UsersUpdate,
+                Permission::UsersDelete,
+                Permission::CoursesCreate,
+                Permission::CoursesRead,
+                Permission::CoursesUpdate,
+                Permission::CoursesDelete,
+                Permission::CoursesPublish,
+                Permission::EnrollmentsCreate,
+                Permission::EnrollmentsRead,
+                Permission::EnrollmentsUpdate,
+                Permission::EnrollmentsDelete,
+                Permission::AssessmentsCreate,
+                Permission::AssessmentsRead,
+                Permission::AssessmentsUpdate,
+                Permission::AssessmentsDelete,
+                Permission::AssessmentsGrade,
+                Permission::GradesRead,
+                Permission::GradesWrite,
+                Permission::GradesExport,
+                Permission::ReportsView,
+                Permission::ReportsExport,
+                Permission::SettingsRead,
+                Permission::SettingsUpdate,
+                Permission::InstitutionManage,
+                Permission::InstitutionUsers,
                 Permission::BillingManage,
             ],
             Role::Admin => vec![
-                Permission::UsersCreate, Permission::UsersRead,
-                Permission::UsersUpdate, Permission::UsersDelete,
-                Permission::CoursesCreate, Permission::CoursesRead,
-                Permission::CoursesUpdate, Permission::CoursesDelete, Permission::CoursesPublish,
-                Permission::EnrollmentsCreate, Permission::EnrollmentsRead,
-                Permission::EnrollmentsUpdate, Permission::EnrollmentsDelete,
-                Permission::AssessmentsCreate, Permission::AssessmentsRead,
-                Permission::AssessmentsUpdate, Permission::AssessmentsDelete, Permission::AssessmentsGrade,
-                Permission::GradesRead, Permission::GradesWrite, Permission::GradesExport,
-                Permission::ReportsView, Permission::ReportsExport,
-                Permission::SettingsRead, Permission::SettingsUpdate,
+                Permission::UsersCreate,
+                Permission::UsersRead,
+                Permission::UsersUpdate,
+                Permission::UsersDelete,
+                Permission::CoursesCreate,
+                Permission::CoursesRead,
+                Permission::CoursesUpdate,
+                Permission::CoursesDelete,
+                Permission::CoursesPublish,
+                Permission::EnrollmentsCreate,
+                Permission::EnrollmentsRead,
+                Permission::EnrollmentsUpdate,
+                Permission::EnrollmentsDelete,
+                Permission::AssessmentsCreate,
+                Permission::AssessmentsRead,
+                Permission::AssessmentsUpdate,
+                Permission::AssessmentsDelete,
+                Permission::AssessmentsGrade,
+                Permission::GradesRead,
+                Permission::GradesWrite,
+                Permission::GradesExport,
+                Permission::ReportsView,
+                Permission::ReportsExport,
+                Permission::SettingsRead,
+                Permission::SettingsUpdate,
                 Permission::InstitutionUsers,
             ],
             Role::Instructor => vec![
-                Permission::CoursesCreate, Permission::CoursesRead,
-                Permission::CoursesUpdate, Permission::CoursesPublish,
+                Permission::CoursesCreate,
+                Permission::CoursesRead,
+                Permission::CoursesUpdate,
+                Permission::CoursesPublish,
                 Permission::EnrollmentsRead,
-                Permission::AssessmentsCreate, Permission::AssessmentsRead,
-                Permission::AssessmentsUpdate, Permission::AssessmentsDelete, Permission::AssessmentsGrade,
-                Permission::GradesRead, Permission::GradesWrite,
+                Permission::AssessmentsCreate,
+                Permission::AssessmentsRead,
+                Permission::AssessmentsUpdate,
+                Permission::AssessmentsDelete,
+                Permission::AssessmentsGrade,
+                Permission::GradesRead,
+                Permission::GradesWrite,
                 Permission::ReportsView,
             ],
             Role::Learner => vec![
@@ -175,18 +210,15 @@ impl Role {
                 Permission::CoursesRead,
                 Permission::ReportsView,
             ],
-            Role::Alumni => vec![
-                Permission::CoursesRead,
-                Permission::GradesRead,
-            ],
+            Role::Alumni => vec![Permission::CoursesRead, Permission::GradesRead],
         }
     }
-    
+
     /// Check if role has a specific permission
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions().contains(permission)
     }
-    
+
     /// Convert role to string for database storage
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -206,7 +238,7 @@ impl Role {
 /// Convert string to Role
 impl TryFrom<&str> for Role {
     type Error = String;
-    
+
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s.to_lowercase().as_str() {
             "super_admin" | "superadmin" => Ok(Role::SuperAdmin),
@@ -226,21 +258,18 @@ impl TryFrom<&str> for Role {
 /// Authorization helper - check if user can perform action
 pub mod authz {
     use super::*;
-    
+
     /// Check if a role can perform an action
     pub fn can(role: &str, permission: Permission) -> bool {
         Role::try_from(role)
             .map(|r| r.has_permission(&permission))
             .unwrap_or(false)
     }
-    
+
     /// Filter list of items based on permissions (for list endpoints)
-    pub fn filter_by_permission<T>(
-        items: Vec<T>,
-        role: &str,
-        permission: Permission,
-    ) -> Vec<T>
-    where T: Clone
+    pub fn filter_by_permission<T>(items: Vec<T>, role: &str, permission: Permission) -> Vec<T>
+    where
+        T: Clone,
     {
         if can(role, permission) {
             items

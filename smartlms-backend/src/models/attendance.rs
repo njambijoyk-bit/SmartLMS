@@ -1,6 +1,6 @@
 // Standalone Attendance model - QR codes, manual entry, reports
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Attendance type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

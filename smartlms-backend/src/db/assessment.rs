@@ -39,25 +39,29 @@ pub async fn list_question_banks(
     per_page: i64,
 ) -> Result<(Vec<QuestionBank>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
-    
+
     let rows = sqlx::query!(
         "SELECT id, name, description, category, course_id, created_by, created_at
          FROM question_banks ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-        per_page, offset
+        per_page,
+        offset
     )
     .fetch_all(pool)
     .await?;
 
-    let banks: Vec<QuestionBank> = rows.into_iter().map(|r| QuestionBank {
-        id: r.id,
-        name: r.name,
-        description: r.description,
-        category: r.category,
-        course_id: r.course_id,
-        question_count: 0,
-        created_by: r.created_by,
-        created_at: r.created_at,
-    }).collect();
+    let banks: Vec<QuestionBank> = rows
+        .into_iter()
+        .map(|r| QuestionBank {
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            category: r.category,
+            course_id: r.course_id,
+            question_count: 0,
+            created_by: r.created_by,
+            created_at: r.created_at,
+        })
+        .collect();
 
     Ok((banks, banks.len() as i64))
 }
@@ -70,13 +74,20 @@ pub async fn create_question(
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
     let points = req.points.unwrap_or(1);
-    
-    let options: Vec<QuestionOption> = req.options.as_ref()
-        .map(|opts| opts.iter().enumerate().map(|(i, o)| QuestionOption {
-            id: Uuid::new_v4(),
-            text: o.text.clone(),
-            is_correct: o.is_correct,
-        }).collect())
+
+    let options: Vec<QuestionOption> = req
+        .options
+        .as_ref()
+        .map(|opts| {
+            opts.iter()
+                .enumerate()
+                .map(|(i, o)| QuestionOption {
+                    id: Uuid::new_v4(),
+                    text: o.text.clone(),
+                    is_correct: o.is_correct,
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
     sqlx::query!(
@@ -127,7 +138,10 @@ pub async fn get_question(pool: &PgPool, id: Uuid) -> Result<Option<Question>, s
     }))
 }
 
-pub async fn get_questions_in_bank(pool: &PgPool, bank_id: Uuid) -> Result<Vec<Question>, sqlx::Error> {
+pub async fn get_questions_in_bank(
+    pool: &PgPool,
+    bank_id: Uuid,
+) -> Result<Vec<Question>, sqlx::Error> {
     let rows = sqlx::query!(
         "SELECT id, bank_id, question_text, question_type, correct_answer, explanation, points, created_at
          FROM questions WHERE bank_id = $1",
@@ -136,19 +150,22 @@ pub async fn get_questions_in_bank(pool: &PgPool, bank_id: Uuid) -> Result<Vec<Q
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Question {
-        id: r.id,
-        bank_id: r.bank_id,
-        question_text: r.question_text,
-        question_type: QuestionType::MultipleChoice,
-        options: vec![],
-        correct_answer: r.correct_answer,
-        explanation: r.explanation,
-        points: r.points,
-        difficulty: "medium".to_string(),
-        tags: vec![],
-        created_at: r.created_at,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Question {
+            id: r.id,
+            bank_id: r.bank_id,
+            question_text: r.question_text,
+            question_type: QuestionType::MultipleChoice,
+            options: vec![],
+            correct_answer: r.correct_answer,
+            explanation: r.explanation,
+            points: r.points,
+            difficulty: "medium".to_string(),
+            tags: vec![],
+            created_at: r.created_at,
+        })
+        .collect())
 }
 
 // Assessment operations
@@ -164,11 +181,21 @@ pub async fn create_assessment(
          time_limit_minutes, passing_score, shuffle_questions, shuffle_options, show_results,
          allow_retries, max_retries, is_published, created_at, due_date)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false, $14, $15)",
-        id, req.title, req.description, format!("{:?}", req.assessment_type).to_lowercase(),
-        req.course_id, req.module_id, req.time_limit_minutes, req.passing_score.unwrap_or(60),
-        req.shuffle_questions.unwrap_or(false), req.shuffle_options.unwrap_or(false),
-        req.show_results.unwrap_or(true), req.allow_retries.unwrap_or(false), req.max_retries,
-        now, req.due_date
+        id,
+        req.title,
+        req.description,
+        format!("{:?}", req.assessment_type).to_lowercase(),
+        req.course_id,
+        req.module_id,
+        req.time_limit_minutes,
+        req.passing_score.unwrap_or(60),
+        req.shuffle_questions.unwrap_or(false),
+        req.shuffle_options.unwrap_or(false),
+        req.show_results.unwrap_or(true),
+        req.allow_retries.unwrap_or(false),
+        req.max_retries,
+        now,
+        req.due_date
     )
     .execute(pool)
     .await?;
@@ -224,7 +251,10 @@ pub async fn get_assessment(pool: &PgPool, id: Uuid) -> Result<Option<Assessment
     }))
 }
 
-pub async fn get_assessment_questions(pool: &PgPool, assessment_id: Uuid) -> Result<Vec<AssessmentQuestion>, sqlx::Error> {
+pub async fn get_assessment_questions(
+    pool: &PgPool,
+    assessment_id: Uuid,
+) -> Result<Vec<AssessmentQuestion>, sqlx::Error> {
     let rows = sqlx::query!(
         "SELECT aq.id, aq.assessment_id, aq.question_id, aq.order_index, aq.points,
                 q.question_text, q.question_type, q.correct_answer, q.explanation, q.points as q_points
@@ -236,59 +266,81 @@ pub async fn get_assessment_questions(pool: &PgPool, assessment_id: Uuid) -> Res
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| AssessmentQuestion {
-        id: r.id,
-        assessment_id: r.assessment_id,
-        question_id: r.question_id,
-        question: Question {
-            id: r.question_id,
-            bank_id: uuid::Uuid::nil(),
-            question_text: r.question_text,
-            question_type: QuestionType::MultipleChoice,
-            options: vec![],
-            correct_answer: r.correct_answer,
-            explanation: r.explanation,
-            points: r.q_points,
-            difficulty: "medium".to_string(),
-            tags: vec![],
-            created_at: chrono::Utc::now(),
-        },
-        order: r.order_index,
-        points: r.points,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| AssessmentQuestion {
+            id: r.id,
+            assessment_id: r.assessment_id,
+            question_id: r.question_id,
+            question: Question {
+                id: r.question_id,
+                bank_id: uuid::Uuid::nil(),
+                question_text: r.question_text,
+                question_type: QuestionType::MultipleChoice,
+                options: vec![],
+                correct_answer: r.correct_answer,
+                explanation: r.explanation,
+                points: r.q_points,
+                difficulty: "medium".to_string(),
+                tags: vec![],
+                created_at: chrono::Utc::now(),
+            },
+            order: r.order_index,
+            points: r.points,
+        })
+        .collect())
 }
 
 pub async fn publish_assessment(pool: &PgPool, id: Uuid) -> Result<Assessment, sqlx::Error> {
-    sqlx::query!("UPDATE assessments SET is_published = true WHERE id = $1", id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE assessments SET is_published = true WHERE id = $1",
+        id
+    )
+    .execute(pool)
+    .await?;
 
     get_assessment(pool, id).await.map(|o| o.unwrap())
 }
 
 pub async fn count_attempts(pool: &PgPool, assessment_id: Uuid) -> Result<i64, sqlx::Error> {
-    let row = sqlx::query!("SELECT COUNT(*) as count FROM attempts WHERE assessment_id = $1", assessment_id)
-        .fetch_one(pool)
-        .await?;
+    let row = sqlx::query!(
+        "SELECT COUNT(*) as count FROM attempts WHERE assessment_id = $1",
+        assessment_id
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(row.count)
 }
 
-pub async fn avg_assessment_score(pool: &PgPool, assessment_id: Uuid) -> Result<Option<f32>, sqlx::Error> {
-    let row = sqlx::query!("SELECT AVG(score) as avg FROM attempts WHERE assessment_id = $1", assessment_id)
-        .fetch_one(pool)
-        .await?;
+pub async fn avg_assessment_score(
+    pool: &PgPool,
+    assessment_id: Uuid,
+) -> Result<Option<f32>, sqlx::Error> {
+    let row = sqlx::query!(
+        "SELECT AVG(score) as avg FROM attempts WHERE assessment_id = $1",
+        assessment_id
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(row.avg.map(|v| v as f32))
 }
 
 // Attempt operations
-pub async fn create_attempt(pool: &PgPool, user_id: Uuid, assessment_id: Uuid) -> Result<Attempt, sqlx::Error> {
+pub async fn create_attempt(
+    pool: &PgPool,
+    user_id: Uuid,
+    assessment_id: Uuid,
+) -> Result<Attempt, sqlx::Error> {
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
 
     sqlx::query!(
         "INSERT INTO attempts (id, assessment_id, user_id, started_at, time_spent_seconds)
          VALUES ($1, $2, $3, $4, 0)",
-        id, assessment_id, user_id, now
+        id,
+        assessment_id,
+        user_id,
+        now
     )
     .execute(pool)
     .await?;
@@ -328,10 +380,15 @@ pub async fn get_attempt(pool: &PgPool, id: Uuid) -> Result<Option<Attempt>, sql
     }))
 }
 
-pub async fn count_user_attempts(pool: &PgPool, user_id: Uuid, assessment_id: Uuid) -> Result<i64, sqlx::Error> {
+pub async fn count_user_attempts(
+    pool: &PgPool,
+    user_id: Uuid,
+    assessment_id: Uuid,
+) -> Result<i64, sqlx::Error> {
     let row = sqlx::query!(
         "SELECT COUNT(*) as count FROM attempts WHERE user_id = $1 AND assessment_id = $2",
-        user_id, assessment_id
+        user_id,
+        assessment_id
     )
     .fetch_one(pool)
     .await?;
@@ -342,15 +399,22 @@ pub async fn save_answer(pool: &PgPool, answer: &Answer) -> Result<(), sqlx::Err
     sqlx::query!(
         "INSERT INTO answers (id, attempt_id, question_id, answer_text, is_correct, points_earned)
          VALUES ($1, $2, $3, $4, $5, $6)",
-        answer.id, answer.attempt_id, answer.question_id, answer.answer_text,
-        answer.is_correct, answer.points_earned
+        answer.id,
+        answer.attempt_id,
+        answer.question_id,
+        answer.answer_text,
+        answer.is_correct,
+        answer.points_earned
     )
     .execute(pool)
     .await?;
     Ok(())
 }
 
-pub async fn get_attempt_answers(pool: &PgPool, attempt_id: Uuid) -> Result<Vec<Answer>, sqlx::Error> {
+pub async fn get_attempt_answers(
+    pool: &PgPool,
+    attempt_id: Uuid,
+) -> Result<Vec<Answer>, sqlx::Error> {
     let rows = sqlx::query!(
         "SELECT id, attempt_id, question_id, answer_text, is_correct, points_earned
          FROM answers WHERE attempt_id = $1",
@@ -359,15 +423,18 @@ pub async fn get_attempt_answers(pool: &PgPool, attempt_id: Uuid) -> Result<Vec<
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Answer {
-        id: r.id,
-        attempt_id: r.attempt_id,
-        question_id: r.question_id,
-        answer_text: r.answer_text,
-        selected_options: vec![],
-        is_correct: r.is_correct,
-        points_earned: r.points_earned,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Answer {
+            id: r.id,
+            attempt_id: r.attempt_id,
+            question_id: r.question_id,
+            answer_text: r.answer_text,
+            selected_options: vec![],
+            is_correct: r.is_correct,
+            points_earned: r.points_earned,
+        })
+        .collect())
 }
 
 pub async fn complete_attempt(
@@ -403,21 +470,24 @@ pub async fn get_gradebook(
     .fetch_all(pool)
     .await?;
 
-    let grades: Vec<Grade> = rows.into_iter().map(|r| Grade {
-        id: r.id,
-        user_id: r.user_id,
-        course_id: r.course_id,
-        assessment_id: r.assessment_id,
-        category: r.category,
-        score: r.score as f32,
-        max_score: r.max_score as f32,
-        percent: r.percent as f32,
-        letter_grade: r.letter_grade,
-        feedback: r.feedback,
-        graded_by: r.graded_by,
-        graded_at: r.graded_at,
-        created_at: r.created_at,
-    }).collect();
+    let grades: Vec<Grade> = rows
+        .into_iter()
+        .map(|r| Grade {
+            id: r.id,
+            user_id: r.user_id,
+            course_id: r.course_id,
+            assessment_id: r.assessment_id,
+            category: r.category,
+            score: r.score as f32,
+            max_score: r.max_score as f32,
+            percent: r.percent as f32,
+            letter_grade: r.letter_grade,
+            feedback: r.feedback,
+            graded_by: r.graded_by,
+            graded_at: r.graded_at,
+            created_at: r.created_at,
+        })
+        .collect();
 
     Ok((grades, grades.len() as i64))
 }
@@ -427,9 +497,19 @@ pub async fn create_grade(pool: &PgPool, grade: &Grade) -> Result<Grade, sqlx::E
         "INSERT INTO grades (id, user_id, course_id, assessment_id, category, score, max_score,
          percent, letter_grade, feedback, graded_by, graded_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
-        grade.id, grade.user_id, grade.course_id, grade.assessment_id, grade.category,
-        grade.score, grade.max_score, grade.percent, grade.letter_grade, grade.feedback,
-        grade.graded_by, grade.graded_at, grade.created_at
+        grade.id,
+        grade.user_id,
+        grade.course_id,
+        grade.assessment_id,
+        grade.category,
+        grade.score,
+        grade.max_score,
+        grade.percent,
+        grade.letter_grade,
+        grade.feedback,
+        grade.graded_by,
+        grade.graded_at,
+        grade.created_at
     )
     .execute(pool)
     .await?;

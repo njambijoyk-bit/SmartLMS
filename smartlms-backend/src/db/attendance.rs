@@ -1,9 +1,9 @@
 // Database operations for attendance system
-use super::models::live::{Attendance, AttendanceStatus};
 use super::models::attendance::*;
+use super::models::live::{Attendance, AttendanceStatus};
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 pub async fn create_qr_session(
     pool: &PgPool,
@@ -36,7 +36,10 @@ pub async fn create_qr_session(
     })
 }
 
-pub async fn get_active_qr_by_code(pool: &PgPool, code: &str) -> Result<Option<QRCodeSession>, sqlx::Error> {
+pub async fn get_active_qr_by_code(
+    pool: &PgPool,
+    code: &str,
+) -> Result<Option<QRCodeSession>, sqlx::Error> {
     let row = sqlx::query!(
         "SELECT id, session_id, code, expires_at, is_active, max_uses, used_count, location_radius_meters
          FROM qr_sessions WHERE code = $1 AND is_active = true AND expires_at > NOW()",
@@ -59,9 +62,12 @@ pub async fn get_active_qr_by_code(pool: &PgPool, code: &str) -> Result<Option<Q
 }
 
 pub async fn increment_qr_use_count(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
-    sqlx::query!("UPDATE qr_sessions SET used_count = used_count + 1 WHERE id = $1", id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE qr_sessions SET used_count = used_count + 1 WHERE id = $1",
+        id
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
@@ -73,11 +79,17 @@ pub async fn create_class_attendance(
         "INSERT INTO class_attendance (id, session_id, course_id, user_id, attendance_type, 
          status, marked_at, marked_by, location, device_info, notes)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-        attendance.id, attendance.session_id, attendance.course_id, attendance.user_id,
+        attendance.id,
+        attendance.session_id,
+        attendance.course_id,
+        attendance.user_id,
         format!("{:?}", attendance.attendance_type).to_lowercase(),
         format!("{:?}", attendance.status).to_lowercase(),
-        attendance.marked_at, attendance.marked_by, attendance.location,
-        attendance.device_info, attendance.notes
+        attendance.marked_at,
+        attendance.marked_by,
+        attendance.location,
+        attendance.device_info,
+        attendance.notes
     )
     .execute(pool)
     .await?;
@@ -97,24 +109,29 @@ pub async fn get_course_attendance(
          FROM class_attendance 
          WHERE course_id = $1 AND marked_at BETWEEN $2 AND $3
          ORDER BY marked_at",
-        course_id, start_date, end_date
+        course_id,
+        start_date,
+        end_date
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| ClassAttendance {
-        id: r.id,
-        session_id: r.session_id,
-        course_id: r.course_id,
-        user_id: r.user_id,
-        attendance_type: AttendanceType::Manual,
-        status: AttendanceStatus::Present,
-        marked_at: r.marked_at,
-        marked_by: r.marked_by,
-        location: r.location,
-        device_info: r.device_info,
-        notes: r.notes,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| ClassAttendance {
+            id: r.id,
+            session_id: r.session_id,
+            course_id: r.course_id,
+            user_id: r.user_id,
+            attendance_type: AttendanceType::Manual,
+            status: AttendanceStatus::Present,
+            marked_at: r.marked_at,
+            marked_by: r.marked_by,
+            location: r.location,
+            device_info: r.device_info,
+            notes: r.notes,
+        })
+        .collect())
 }
 
 pub async fn get_user_class_attendance(
@@ -129,7 +146,8 @@ pub async fn get_user_class_attendance(
              FROM class_attendance 
              WHERE user_id = $1 AND course_id = $2
              ORDER BY marked_at DESC",
-            user_id, cid
+            user_id,
+            cid
         )
         .fetch_all(pool)
         .await?
@@ -146,17 +164,20 @@ pub async fn get_user_class_attendance(
         .await?
     };
 
-    Ok(rows.into_iter().map(|r| ClassAttendance {
-        id: r.id,
-        session_id: r.session_id,
-        course_id: r.course_id,
-        user_id: r.user_id,
-        attendance_type: AttendanceType::Manual,
-        status: AttendanceStatus::Present,
-        marked_at: r.marked_at,
-        marked_by: r.marked_by,
-        location: r.location,
-        device_info: r.device_info,
-        notes: r.notes,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| ClassAttendance {
+            id: r.id,
+            session_id: r.session_id,
+            course_id: r.course_id,
+            user_id: r.user_id,
+            attendance_type: AttendanceType::Manual,
+            status: AttendanceStatus::Present,
+            marked_at: r.marked_at,
+            marked_by: r.marked_by,
+            location: r.location,
+            device_info: r.device_info,
+            notes: r.notes,
+        })
+        .collect())
 }

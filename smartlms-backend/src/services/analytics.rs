@@ -1,7 +1,7 @@
 // Analytics & Reporting Service - Dashboards, reports, xAPI export
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Learner dashboard data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,7 +147,7 @@ pub struct ReportFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportSchedule {
-    pub frequency: String,  // "daily", "weekly", "monthly"
+    pub frequency: String, // "daily", "weekly", "monthly"
     pub recipients: Vec<String>,
     pub next_run: DateTime<Utc>,
 }
@@ -166,7 +166,7 @@ pub struct XapiStatement {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct XapiActor {
-    pub mbox: String,  // email
+    pub mbox: String, // email
     pub name: String,
 }
 
@@ -208,7 +208,7 @@ pub struct XapiContext {
 // SERVICE FUNCTIONS
 pub mod service {
     use super::*;
-    
+
     /// Get learner dashboard
     pub async fn get_learner_dashboard(
         pool: &PgPool,
@@ -226,7 +226,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Get average grade
         let avg_grade: Option<f64> = sqlx::query_scalar!(
             "SELECT AVG(current_grade) FROM enrollments WHERE user_id = $1 AND current_grade IS NOT NULL",
@@ -235,7 +235,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Get upcoming assignments
         let assignments = sqlx::query!(
             "SELECT a.id, c.title as course_name, a.title, a.due_date
@@ -249,7 +249,7 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(LearnerDashboard {
             user_id,
             enrolled_courses: stats.total.unwrap_or(0) as i32,
@@ -257,18 +257,21 @@ pub mod service {
             in_progress_courses: stats.in_progress.unwrap_or(0) as i32,
             average_grade: avg_grade.unwrap_or(0.0),
             total_study_time_hours: 0.0,
-            upcoming_assignments: assignments.into_iter().map(|a| AssignmentSummary {
-                assignment_id: a.id,
-                course_name: a.course_name,
-                title: a.title,
-                due_date: a.due_date,
-                status: "pending".to_string(),
-            }).collect(),
+            upcoming_assignments: assignments
+                .into_iter()
+                .map(|a| AssignmentSummary {
+                    assignment_id: a.id,
+                    course_name: a.course_name,
+                    title: a.title,
+                    due_date: a.due_date,
+                    status: "pending".to_string(),
+                })
+                .collect(),
             recent_activities: vec![],
             achievements: vec![],
         })
     }
-    
+
     /// Get course analytics
     pub async fn get_course_analytics(
         pool: &PgPool,
@@ -285,11 +288,15 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         let total = stats.total.unwrap_or(0) as i32;
         let completed = stats.completed.unwrap_or(0) as i32;
-        let completion_rate = if total > 0 { (completed as f64 / total as f64) * 100.0 } else { 0.0 };
-        
+        let completion_rate = if total > 0 {
+            (completed as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+
         // Get average grade
         let avg_grade: Option<f64> = sqlx::query_scalar!(
             "SELECT AVG(current_grade) FROM enrollments WHERE course_id = $1 AND current_grade IS NOT NULL",
@@ -298,7 +305,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(CourseAnalytics {
             course_id,
             total_enrolled: total,
@@ -318,7 +325,7 @@ pub mod service {
             content_performance: vec![],
         })
     }
-    
+
     /// Create custom report
     pub async fn create_custom_report(
         pool: &PgPool,
@@ -328,7 +335,7 @@ pub mod service {
         report_type: ReportType,
     ) -> Result<CustomReport, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO custom_reports (id, institution_id, name, report_type, created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, $6)",
@@ -337,7 +344,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(CustomReport {
             id,
             institution_id,
@@ -351,7 +358,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Export to xAPI format
     pub async fn export_xapi(
         pool: &PgPool,
@@ -367,43 +374,48 @@ pub mod service {
              JOIN quizzes q ON qa.quiz_id = q.id
              JOIN users u ON qa.user_id = u.id
              WHERE qa.user_id = $1 AND qa.completed_at BETWEEN $2 AND $3",
-            user_id, start_date, end_date
+            user_id,
+            start_date,
+            end_date
         )
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(attempts.into_iter().map(|a| XapiStatement {
-            id: a.id,
-            actor: XapiActor {
-                mbox: a.email,
-                name: format!("{} {}", a.first_name, ""),
-            },
-            verb: XapiVerb {
-                id: "http://adlnet.gov/expapi/verbs/completed".to_string(),
-                display: "completed".to_string(),
-            },
-            object: XapiObject {
-                id: format!("/quizzes/{}", a.quiz_id),
-                object_type: "Activity".to_string(),
-                name: Some(a.title),
-            },
-            result: Some(XapiResult {
-                score: Some(XapiScore {
-                    scaled: Some(a.score_percent.unwrap_or(0.0) / 100.0),
-                    raw: a.score_percent,
-                    min: Some(0.0),
-                    max: Some(100.0),
+
+        Ok(attempts
+            .into_iter()
+            .map(|a| XapiStatement {
+                id: a.id,
+                actor: XapiActor {
+                    mbox: a.email,
+                    name: format!("{} {}", a.first_name, ""),
+                },
+                verb: XapiVerb {
+                    id: "http://adlnet.gov/expapi/verbs/completed".to_string(),
+                    display: "completed".to_string(),
+                },
+                object: XapiObject {
+                    id: format!("/quizzes/{}", a.quiz_id),
+                    object_type: "Activity".to_string(),
+                    name: Some(a.title),
+                },
+                result: Some(XapiResult {
+                    score: Some(XapiScore {
+                        scaled: Some(a.score_percent.unwrap_or(0.0) / 100.0),
+                        raw: a.score_percent,
+                        min: Some(0.0),
+                        max: Some(100.0),
+                    }),
+                    success: Some(a.score_percent.unwrap_or(0.0) >= 60.0),
+                    completion: Some(true),
+                    duration: None,
                 }),
-                success: Some(a.score_percent.unwrap_or(0.0) >= 60.0),
-                completion: Some(true),
-                duration: None,
-            }),
-            context: None,
-            timestamp: a.completed_at,
-        }).collect())
+                context: None,
+                timestamp: a.completed_at,
+            })
+            .collect())
     }
-    
+
     /// Get cohort comparison
     pub async fn get_cohort_comparison(
         pool: &PgPool,
@@ -417,7 +429,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(CohortComparison {
             cohort_id: row.id,
             metrics: CohortMetrics {
@@ -430,7 +442,7 @@ pub mod service {
             comparison_to_previous: ComparisonData {
                 metric_name: "completion_rate".to_string(),
                 current_value: row.avg_completion_rate,
-                previous_value: row.avg_completion_rate * 0.95,  // Simulated
+                previous_value: row.avg_completion_rate * 0.95, // Simulated
                 change_percentage: 5.0,
             },
         })

@@ -1,14 +1,14 @@
 // Assessments API routes
+use crate::models::assessment::*;
+use crate::services::assessments as assessment_service;
+use crate::tenant::InstitutionCtx;
 use axum::{
-    extract::{State, Json, Path, Query, Extension},
+    extract::{Extension, Json, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
-use crate::models::assessment::*;
-use crate::services::assessments as assessment_service;
-use crate::tenant::InstitutionCtx;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -22,12 +22,9 @@ pub async fn list_question_banks(
     Extension(ctx): Extension<InstitutionCtx>,
     Query(query): Query<ListAssessmentsQuery>,
 ) -> Result<Json<Vec<QuestionBank>>, (StatusCode, String)> {
-    let (banks, _) = assessment_service::get_question_banks(
-        &ctx.db_pool,
-        query.course_id,
-        1,
-        20,
-    ).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let (banks, _) = assessment_service::get_question_banks(&ctx.db_pool, query.course_id, 1, 20)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(banks))
 }
 
@@ -36,7 +33,8 @@ pub async fn create_question_bank(
     Extension(ctx): Extension<InstitutionCtx>,
     Json(req): Json<CreateQuestionBankRequest>,
 ) -> Result<Json<QuestionBank>, (StatusCode, String)> {
-    let bank = assessment_service::create_question_bank(&ctx.db_pool, ctx.id, &req).await
+    let bank = assessment_service::create_question_bank(&ctx.db_pool, ctx.id, &req)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(bank))
 }
@@ -46,7 +44,8 @@ pub async fn create_question(
     Extension(ctx): Extension<InstitutionCtx>,
     Json(req): Json<CreateQuestionRequest>,
 ) -> Result<Json<Question>, (StatusCode, String)> {
-    let question = assessment_service::create_question(&ctx.db_pool, &req).await
+    let question = assessment_service::create_question(&ctx.db_pool, &req)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(question))
 }
@@ -65,7 +64,8 @@ pub async fn get_assessment(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(assessment_id): Path<uuid::Uuid>,
 ) -> Result<Json<AssessmentDetailResponse>, (StatusCode, String)> {
-    let detail = assessment_service::get_assessment_detail(&ctx.db_pool, assessment_id).await
+    let detail = assessment_service::get_assessment_detail(&ctx.db_pool, assessment_id)
+        .await
         .map_err(|e| (StatusCode::NOT_FOUND, e))?;
     Ok(Json(detail))
 }
@@ -75,7 +75,8 @@ pub async fn create_assessment(
     Extension(ctx): Extension<InstitutionCtx>,
     Json(req): Json<CreateAssessmentRequest>,
 ) -> Result<Json<Assessment>, (StatusCode, String)> {
-    let assessment = assessment_service::create_assessment(&ctx.db_pool, &req).await
+    let assessment = assessment_service::create_assessment(&ctx.db_pool, &req)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(assessment))
 }
@@ -85,7 +86,8 @@ pub async fn publish_assessment(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(assessment_id): Path<uuid::Uuid>,
 ) -> Result<Json<Assessment>, (StatusCode, String)> {
-    let assessment = assessment_service::publish_assessment(&ctx.db_pool, assessment_id).await
+    let assessment = assessment_service::publish_assessment(&ctx.db_pool, assessment_id)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(assessment))
 }
@@ -95,7 +97,8 @@ pub async fn start_attempt(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(assessment_id): Path<uuid::Uuid>,
 ) -> Result<Json<Attempt>, (StatusCode, String)> {
-    let attempt = assessment_service::start_attempt(&ctx.db_pool, ctx.id, assessment_id).await
+    let attempt = assessment_service::start_attempt(&ctx.db_pool, ctx.id, assessment_id)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(attempt))
 }
@@ -106,7 +109,8 @@ pub async fn submit_answer(
     Path(attempt_id): Path<uuid::Uuid>,
     Json(req): Json<SubmitAnswerRequest>,
 ) -> Result<Json<Answer>, (StatusCode, String)> {
-    let answer = assessment_service::submit_answer(&ctx.db_pool, ctx.id, attempt_id, &req).await
+    let answer = assessment_service::submit_answer(&ctx.db_pool, ctx.id, attempt_id, &req)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(answer))
 }
@@ -116,7 +120,8 @@ pub async fn submit_attempt(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(attempt_id): Path<uuid::Uuid>,
 ) -> Result<Json<AttemptDetailResponse>, (StatusCode, String)> {
-    let result = assessment_service::submit_attempt(&ctx.db_pool, ctx.id, attempt_id).await
+    let result = assessment_service::submit_attempt(&ctx.db_pool, ctx.id, attempt_id)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(result))
 }
@@ -126,7 +131,8 @@ pub async fn get_gradebook(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(course_id): Path<uuid::Uuid>,
 ) -> Result<Json<GradebookResponse>, (StatusCode, String)> {
-    let gradebook = assessment_service::get_gradebook(&ctx.db_pool, course_id, None).await
+    let gradebook = assessment_service::get_gradebook(&ctx.db_pool, course_id, None)
+        .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(gradebook))
 }
@@ -148,7 +154,9 @@ pub async fn create_grade(
         },
         req.assessment_id,
         ctx.id,
-    ).await.map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    )
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(grade))
 }
 

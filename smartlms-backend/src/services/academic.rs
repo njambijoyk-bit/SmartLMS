@@ -1,7 +1,7 @@
 // Advanced Academic Features - CBE, Micro-credentials, Wellbeing, Advising, etc.
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // ============================================================================
 // COMPETENCY-BASED EDUCATION (CBE)
@@ -23,10 +23,10 @@ pub struct CompetencyFramework {
 pub struct Competency {
     pub id: uuid::Uuid,
     pub framework_id: uuid::Uuid,
-    pub code: String,           // e.g., "MATH-101"
+    pub code: String, // e.g., "MATH-101"
     pub name: String,
     pub description: String,
-    pub level: i32,             // 1-5 mastery levels
+    pub level: i32, // 1-5 mastery levels
     pub parent_id: Option<uuid::Uuid>,
     pub prerequisites: Vec<uuid::Uuid>,
 }
@@ -48,7 +48,7 @@ pub struct CompetencyRecord {
 pub struct CompetencyEvidence {
     pub id: uuid::Uuid,
     pub record_id: uuid::Uuid,
-    pub evidence_type: String,  // "quiz", "assignment", "project", "portfolio"
+    pub evidence_type: String, // "quiz", "assignment", "project", "portfolio"
     pub reference_id: uuid::Uuid,
     pub score: Option<f64>,
     pub notes: Option<String>,
@@ -98,7 +98,7 @@ pub struct IssuedCredential {
     pub id: uuid::Uuid,
     pub credential_id: uuid::Uuid,
     pub user_id: uuid::Uuid,
-    pub badge_id: String,          // Open Badges 3.0 ID
+    pub badge_id: String, // Open Badges 3.0 ID
     pub issued_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub revocation_reason: Option<String>,
@@ -114,10 +114,10 @@ pub struct IssuedCredential {
 pub struct WellbeingCheckin {
     pub id: uuid::Uuid,
     pub student_id: uuid::Uuid,
-    pub emotional_state: i32,      // 1-10
-    pub stress_level: i32,         // 1-10
-    pub sleep_quality: i32,       // 1-10
-    pub social_connection: i32,   // 1-10
+    pub emotional_state: i32,   // 1-10
+    pub stress_level: i32,      // 1-10
+    pub sleep_quality: i32,     // 1-10
+    pub social_connection: i32, // 1-10
     pub comments: Option<String>,
     pub flag_for_followup: bool,
     pub submitted_at: DateTime<Utc>,
@@ -415,7 +415,7 @@ pub enum EmploymentStatus {
 // SERVICE FUNCTIONS
 pub mod service {
     use super::*;
-    
+
     /// Create competency framework
     pub async fn create_framework(
         pool: &PgPool,
@@ -424,16 +424,20 @@ pub mod service {
         description: Option<&str>,
     ) -> Result<CompetencyFramework, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO competency_frameworks (id, institution_id, name, description, created_at)
              VALUES ($1, $2, $3, $4, $5)",
-            id, institution_id, name, description, Utc::now()
+            id,
+            institution_id,
+            name,
+            description,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(CompetencyFramework {
             id,
             institution_id,
@@ -443,7 +447,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Create micro-credential
     pub async fn create_micro_credential(
         pool: &PgPool,
@@ -453,7 +457,7 @@ pub mod service {
         competencies: Vec<uuid::Uuid>,
     ) -> Result<MicroCredential, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO micro_credentials (id, institution_id, name, description, competencies, created_at)
              VALUES ($1, $2, $3, $4, $5, $6)",
@@ -462,7 +466,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(MicroCredential {
             id,
             institution_id,
@@ -486,7 +490,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Submit wellbeing check-in
     pub async fn submit_wellbeing_checkin(
         pool: &PgPool,
@@ -498,20 +502,28 @@ pub mod service {
         comments: Option<&str>,
     ) -> Result<WellbeingCheckin, String> {
         let id = Uuid::new_v4();
-        
+
         // Flag if any metric is low
         let flag = emotional < 4 || stress > 7 || sleep < 4 || social < 4;
-        
+
         sqlx::query!(
             "INSERT INTO wellbeing_checkins (id, student_id, emotional_state, stress_level, 
              sleep_quality, social_connection, comments, flag_for_followup, submitted_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            id, student_id, emotional, stress, sleep, social, comments, flag, Utc::now()
+            id,
+            student_id,
+            emotional,
+            stress,
+            sleep,
+            social,
+            comments,
+            flag,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Create alert if flagged
         if flag {
             let alert_id = Uuid::new_v4();
@@ -524,7 +536,7 @@ pub mod service {
             .await
             .ok();
         }
-        
+
         Ok(WellbeingCheckin {
             id,
             student_id,
@@ -537,7 +549,7 @@ pub mod service {
             submitted_at: Utc::now(),
         })
     }
-    
+
     /// Create peer review assignment
     pub async fn create_peer_review(
         pool: &PgPool,
@@ -547,7 +559,7 @@ pub mod service {
         due_date: DateTime<Utc>,
     ) -> Result<PeerReview, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO peer_reviews (id, assignment_id, reviewer_id, reviewee_id, status, due_date)
              VALUES ($1, $2, $3, $4, 'pending', $5)",
@@ -556,7 +568,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(PeerReview {
             id,
             assignment_id,
@@ -570,7 +582,7 @@ pub mod service {
             submitted_at: None,
         })
     }
-    
+
     /// Create student portfolio
     pub async fn create_portfolio(
         pool: &PgPool,
@@ -579,7 +591,7 @@ pub mod service {
         description: Option<&str>,
     ) -> Result<Portfolio, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO portfolios (id, student_id, title, description, is_public, created_at, updated_at)
              VALUES ($1, $2, $3, $4, false, $5, $6)",
@@ -588,7 +600,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(Portfolio {
             id,
             student_id,
@@ -601,7 +613,7 @@ pub mod service {
             updated_at: Utc::now(),
         })
     }
-    
+
     /// Submit RPL application
     pub async fn submit_rpl_application(
         pool: &PgPool,
@@ -609,7 +621,7 @@ pub mod service {
         target_credential_id: uuid::Uuid,
     ) -> Result<RplApplication, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO rpl_applications (id, student_id, target_credential_id, status, created_at)
              VALUES ($1, $2, $3, 'draft', $4)",
@@ -618,7 +630,7 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(RplApplication {
             id,
             student_id,

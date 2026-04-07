@@ -1,7 +1,7 @@
 // Proctoring Service - Browser lockdown, video recording, AI proctoring
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Proctoring session status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,31 +20,31 @@ pub struct ProctoringSession {
     pub exam_id: uuid::Uuid,
     pub user_id: uuid::Uuid,
     pub status: ProctoringStatus,
-    
+
     // Recording URLs
     pub webcam_url: Option<String>,
     pub screen_url: Option<String>,
     pub audio_url: Option<String>,
-    
+
     // Settings
     pub browser_lockdown: bool,
     pub fullscreen_required: bool,
     pub tab_switch_alerts: bool,
     pub webcam_required: bool,
     pub screen_recording: bool,
-    
+
     // Security flags
     pub face_detected: bool,
     pub multiple_faces: bool,
     pub no_face_duration_seconds: i32,
     pub tab_switch_count: i32,
     pub copy_paste_attempts: i32,
-    
+
     // Timing
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub duration_minutes: Option<i32>,
-    
+
     pub created_at: DateTime<Utc>,
 }
 
@@ -140,7 +140,7 @@ pub enum IdentityType {
 
 pub mod service {
     use super::*;
-    
+
     /// Create a new proctoring session for an exam
     pub async fn create_session(
         pool: &PgPool,
@@ -150,20 +150,26 @@ pub mod service {
     ) -> Result<ProctoringSession, String> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         sqlx::query!(
             "INSERT INTO proctoring_sessions (id, exam_id, user_id, status, 
              browser_lockdown, fullscreen_required, tab_switch_alerts,
              webcam_required, screen_recording, created_at)
              VALUES ($1, $2, $3, 'not_started', $4, $5, $6, $7, $8, $9)",
-            id, exam_id, user_id, settings.browser_lockdown, 
-            settings.fullscreen_required, settings.tab_switch_alerts,
-            settings.webcam_required, settings.screen_recording, now
+            id,
+            exam_id,
+            user_id,
+            settings.browser_lockdown,
+            settings.fullscreen_required,
+            settings.tab_switch_alerts,
+            settings.webcam_required,
+            settings.screen_recording,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(ProctoringSession {
             id,
             exam_id,
@@ -188,32 +194,35 @@ pub mod service {
             created_at: now,
         })
     }
-    
+
     /// Start proctoring session
     pub async fn start_session(
         pool: &PgPool,
         session_id: uuid::Uuid,
     ) -> Result<ProctoringSession, String> {
         let now = Utc::now();
-        
+
         sqlx::query!(
             "UPDATE proctoring_sessions SET status = 'in_progress', started_at = $1 WHERE id = $2",
-            now, session_id
+            now,
+            session_id
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        get_session(pool, session_id).await?.ok_or("Session not found".to_string())
+
+        get_session(pool, session_id)
+            .await?
+            .ok_or("Session not found".to_string())
     }
-    
+
     /// End proctoring session
     pub async fn end_session(
         pool: &PgPool,
         session_id: uuid::Uuid,
     ) -> Result<ProctoringSession, String> {
         let now = Utc::now();
-        
+
         // Get start time to calculate duration
         let start: Option<DateTime<Utc>> = sqlx::query_scalar!(
             "SELECT started_at FROM proctoring_sessions WHERE id = $1",
@@ -222,9 +231,9 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         let duration = start.map(|s| ((now - s).num_minutes()) as i32);
-        
+
         // Determine if flagged based on violations
         let violation_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) FROM violation_events WHERE session_id = $1 AND severity IN ('high', 'critical')",
@@ -233,13 +242,13 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         let status = if violation_count > 0 {
             ProctoringStatus::Flagged
         } else {
             ProctoringStatus::Completed
         };
-        
+
         sqlx::query!(
             "UPDATE proctoring_sessions SET status = $1, completed_at = $2, duration_minutes = $3 WHERE id = $4",
             format!("{:?}", status).to_lowercase(), now, duration, session_id
@@ -247,10 +256,12 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        get_session(pool, session_id).await?.ok_or("Session not found".to_string())
+
+        get_session(pool, session_id)
+            .await?
+            .ok_or("Session not found".to_string())
     }
-    
+
     /// Record a violation event
     pub async fn record_violation(
         pool: &PgPool,
@@ -260,7 +271,7 @@ pub mod service {
         description: &str,
     ) -> Result<ViolationEvent, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO violation_events (id, session_id, violation_type, severity, description, timestamp)
              VALUES ($1, $2, $3, $4, $5, $6)",
@@ -270,18 +281,19 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Update session violation count
         sqlx::query!(
             "UPDATE proctoring_sessions SET 
              tab_switch_count = tab_switch_count + 1
              WHERE id = $1 AND $2 IN ('tab_switch', 'window_blur')",
-            session_id, format!("{:?}", violation_type).to_lowercase()
+            session_id,
+            format!("{:?}", violation_type).to_lowercase()
         )
         .execute(pool)
         .await
         .ok();
-        
+
         Ok(ViolationEvent {
             id,
             session_id,
@@ -292,7 +304,7 @@ pub mod service {
             timestamp: Utc::now(),
         })
     }
-    
+
     /// Get violations for a session
     pub async fn get_violations(
         pool: &PgPool,
@@ -306,18 +318,21 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| ViolationEvent {
-            id: r.id,
-            session_id: r.session_id,
-            violation_type: ViolationType::TabSwitch,
-            severity: ViolationSeverity::Low,
-            description: r.description,
-            evidence_url: r.evidence_url,
-            timestamp: r.timestamp,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| ViolationEvent {
+                id: r.id,
+                session_id: r.session_id,
+                violation_type: ViolationType::TabSwitch,
+                severity: ViolationSeverity::Low,
+                description: r.description,
+                evidence_url: r.evidence_url,
+                timestamp: r.timestamp,
+            })
+            .collect())
     }
-    
+
     /// Get session by ID
     pub async fn get_session(
         pool: &PgPool,
@@ -335,7 +350,7 @@ pub mod service {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(row.map(|r| ProctoringSession {
             id: r.id,
             exam_id: r.exam_id,
@@ -360,7 +375,7 @@ pub mod service {
             created_at: r.created_at,
         }))
     }
-    
+
     /// Get flagged sessions for review
     pub async fn get_review_queue(
         pool: &PgPool,
@@ -384,18 +399,21 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| ReviewQueueItem {
-            session_id: r.id,
-            exam_id: r.exam_id,
-            user_id: r.user_id,
-            violation_count: r.violation_count as i32,
-            tab_switch_count: r.tab_switch_count as i32,
-            multiple_faces: r.multiple_faces,
-            status: "pending".to_string(),
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| ReviewQueueItem {
+                session_id: r.id,
+                exam_id: r.exam_id,
+                user_id: r.user_id,
+                violation_count: r.violation_count as i32,
+                tab_switch_count: r.tab_switch_count as i32,
+                multiple_faces: r.multiple_faces,
+                status: "pending".to_string(),
+            })
+            .collect())
     }
-    
+
     /// Submit review for a session
     pub async fn submit_review(
         pool: &PgPool,
@@ -406,18 +424,23 @@ pub mod service {
     ) -> Result<ProctoringReview, String> {
         let now = Utc::now();
         let review_id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO proctoring_reviews (id, session_id, reviewer_id, review_status, 
              notes, violation_count, reviewed_at, created_at)
              VALUES ($1, $2, $3, $4, $5, 0, $6, $7)",
-            review_id, session_id, reviewer_id, format!("{:?}", review_status).to_lowercase(),
-            notes, now, now
+            review_id,
+            session_id,
+            reviewer_id,
+            format!("{:?}", review_status).to_lowercase(),
+            notes,
+            now,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(ProctoringReview {
             id: review_id,
             session_id,
@@ -430,7 +453,7 @@ pub mod service {
             created_at: now,
         })
     }
-    
+
     /// Create identity verification
     pub async fn verify_identity(
         pool: &PgPool,
@@ -439,25 +462,32 @@ pub mod service {
         selfie_url: Option<&str>,
     ) -> Result<IdentityVerification, String> {
         let id = Uuid::new_v4();
-        
+
         // In production: call face recognition service
         // For now, simulate verification
         let is_verified = true;
         let liveness_passed = true;
         let match_score = 0.95;
-        
+
         sqlx::query!(
             "INSERT INTO identity_verifications (id, user_id, verification_type, 
              id_photo_url, selfie_photo_url, match_score, is_verified, liveness_passed, 
              verified_at, created_at)
              VALUES ($1, $2, 'photo_id', $3, $4, $5, $6, $7, $8, $9)",
-            id, user_id, id_photo_url, selfie_url, match_score, is_verified, liveness_passed,
-            if is_verified { Some(Utc::now()) } else { None }, Utc::now()
+            id,
+            user_id,
+            id_photo_url,
+            selfie_url,
+            match_score,
+            is_verified,
+            liveness_passed,
+            if is_verified { Some(Utc::now()) } else { None },
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(IdentityVerification {
             id,
             user_id,

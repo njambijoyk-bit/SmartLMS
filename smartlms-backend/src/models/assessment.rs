@@ -1,6 +1,6 @@
 // Assessment model - questions, quizzes, assignments, grades, exams
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Question types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

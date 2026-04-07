@@ -1,7 +1,7 @@
 // Peer Learning & Structured Peer Review — Calibrated peer assessment with grading
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// A peer review assignment configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,7 +13,7 @@ pub struct PeerReviewAssignment {
     pub description: String,
     pub submission_deadline: DateTime<Utc>,
     pub review_deadline: DateTime<Utc>,
-    pub reviews_per_student: u8,  // N peers each student must review
+    pub reviews_per_student: u8, // N peers each student must review
     pub rubric: Vec<RubricCriterion>,
     pub grading_weights: GradingWeights,
     pub calibration_enabled: bool,
@@ -52,7 +52,7 @@ pub struct RubricLevel {
 /// Weighting: student's own work + quality of reviews given
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GradingWeights {
-    pub submission_weight: f64,  // e.g. 0.70
+    pub submission_weight: f64,     // e.g. 0.70
     pub review_quality_weight: f64, // e.g. 0.30
 }
 
@@ -126,10 +126,10 @@ pub struct RaterBiasAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RaterBiasType {
-    Generous,   // consistently rates higher than calibration
-    Harsh,      // consistently rates lower than calibration
-    Random,     // shows no correlation with calibration — possible gaming
-    Lenient,    // rates everyone maximum
+    Generous, // consistently rates higher than calibration
+    Harsh,    // consistently rates lower than calibration
+    Random,   // shows no correlation with calibration — possible gaming
+    Lenient,  // rates everyone maximum
 }
 
 /// Final calculated grade for a student
@@ -137,8 +137,8 @@ pub enum RaterBiasType {
 pub struct PeerReviewGrade {
     pub student_id: Uuid,
     pub assignment_id: Uuid,
-    pub submission_score: f64,       // from peers reviewing their work
-    pub review_quality_score: f64,   // how well they reviewed others (vs calibration)
+    pub submission_score: f64,     // from peers reviewing their work
+    pub review_quality_score: f64, // how well they reviewed others (vs calibration)
     pub final_grade: f64,
     pub grade_breakdown: GradeBreakdown,
 }
@@ -263,7 +263,10 @@ impl PeerReviewService {
         }
         let variance: f64 = {
             let mean = review_scores.iter().sum::<f64>() / review_scores.len() as f64;
-            review_scores.iter().map(|s| (s - mean).powi(2)).sum::<f64>()
+            review_scores
+                .iter()
+                .map(|s| (s - mean).powi(2))
+                .sum::<f64>()
                 / review_scores.len() as f64
         };
         // Very low variance (< 0.1) suggests always clicking same score
@@ -279,8 +282,16 @@ impl PeerReviewService {
             .zip(calibration_scores.iter())
             .map(|(r, c)| (r - mean_r) * (c - mean_c))
             .sum();
-        let denom_r: f64 = review_scores.iter().map(|r| (r - mean_r).powi(2)).sum::<f64>().sqrt();
-        let denom_c: f64 = calibration_scores.iter().map(|c| (c - mean_c).powi(2)).sum::<f64>().sqrt();
+        let denom_r: f64 = review_scores
+            .iter()
+            .map(|r| (r - mean_r).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let denom_c: f64 = calibration_scores
+            .iter()
+            .map(|c| (c - mean_c).powi(2))
+            .sum::<f64>()
+            .sqrt();
         if denom_r * denom_c == 0.0 {
             return true;
         }

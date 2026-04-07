@@ -1,17 +1,20 @@
 // Live class service - video sessions, scheduling, attendance
-use crate::models::live::*;
 use crate::db::live as live_db;
+use crate::models::live::*;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 // Video provider integration
 pub mod video_providers {
     use super::*;
-    
+
     /// Create a meeting via Zoom API
-    pub async fn create_zoom_meeting(req: &CreateSessionRequest, config: &ZoomConfig) -> Result<ZoomMeeting, String> {
+    pub async fn create_zoom_meeting(
+        req: &CreateSessionRequest,
+        config: &ZoomConfig,
+    ) -> Result<ZoomMeeting, String> {
         let client = reqwest::Client::new();
-        
+
         let response = client
             .post(&format!("https://api.zoom.us/v2/users/{}/meetings", config.user_id))
             .header("Authorization", format!("Bearer {}", config.access_token))
@@ -34,15 +37,18 @@ pub mod video_providers {
             .send()
             .await
             .map_err(|e| e.to_string())?;
-        
+
         let meeting: ZoomMeeting = response.json().await.map_err(|e| e.to_string())?;
         Ok(meeting)
     }
-    
+
     /// Create Google Meet
-    pub async fn create_google_meet(req: &CreateSessionRequest, access_token: &str) -> Result<GoogleMeet, String> {
+    pub async fn create_google_meet(
+        req: &CreateSessionRequest,
+        access_token: &str,
+    ) -> Result<GoogleMeet, String> {
         let client = reqwest::Client::new();
-        
+
         let response = client
             .post("https://www.googleapis.com/calendar/v3/calendars/primary/events")
             .header("Authorization", format!("Bearer {}", access_token))
@@ -67,32 +73,33 @@ pub mod video_providers {
             .send()
             .await
             .map_err(|e| e.to_string())?;
-        
+
         let event: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-        
+
         let meet_link = event["conferenceData"]["entryPoints"][0]["uri"]
             .as_str()
             .unwrap_or("")
             .to_string();
-        
+
         Ok(GoogleMeet {
             meeting_id: Uuid::new_v4().to_string(),
             join_url: meet_link,
             host_url: meet_link,
         })
     }
-    
+
     /// Generate Jitsi meeting URL (no API needed)
     pub fn create_jitsi_meeting(title: &str) -> (String, String) {
-        let meeting_id = format!("{}-{}", 
+        let meeting_id = format!(
+            "{}-{}",
             title.to_lowercase().replace(" ", "-"),
             &Uuid::new_v4().to_string()[..8]
         );
-        
+
         let base_url = "meet.jit.si";
         let join_url = format!("https://{}/{}", base_url, meeting_id);
         let host_url = format!("https://{}/{}+host", base_url, meeting_id);
-        
+
         (join_url, host_url)
     }
 }
@@ -130,17 +137,27 @@ pub async fn create_session(
     if req.title.is_empty() {
         return Err("Title required".to_string());
     }
-    
+
     // Create meeting based on provider
     let (meeting_id, join_url, host_url, password) = match req.provider {
         VideoProvider::Zoom => {
             // In production, call Zoom API
             let id = Uuid::new_v4().to_string();
-            (Some(id.clone()), Some(format!("https://zoom.us/j/{}", id)), Some(format!("https://zoom.us/s/{}", id)), None)
+            (
+                Some(id.clone()),
+                Some(format!("https://zoom.us/j/{}", id)),
+                Some(format!("https://zoom.us/s/{}", id)),
+                None,
+            )
         }
         VideoProvider::GoogleMeet => {
             let id = Uuid::new_v4().to_string();
-            (Some(id), Some(format!("https://meet.google.com/{}", id)), None, None)
+            (
+                Some(id),
+                Some(format!("https://meet.google.com/{}", id)),
+                None,
+                None,
+            )
         }
         VideoProvider::Jitsi => {
             let (join, host) = video_providers::create_jitsi_meeting(&req.title);
@@ -148,7 +165,7 @@ pub async fn create_session(
         }
         VideoProvider::Custom => (None, None, None, None),
     };
-    
+
     let session = live_db::create_session(
         pool,
         instructor_id,
@@ -157,23 +174,25 @@ pub async fn create_session(
         join_url,
         host_url,
         password,
-    ).await.map_err(|e| e.to_string())?;
-    
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(session)
 }
 
-pub async fn get_session(
-    pool: &PgPool,
-    session_id: Uuid,
-) -> Result<SessionDetailResponse, String> {
-    let session = live_db::get_session(pool, session_id).await
+pub async fn get_session(pool: &PgPool, session_id: Uuid) -> Result<SessionDetailResponse, String> {
+    let session = live_db::get_session(pool, session_id)
+        .await
         .map_err(|e| e.to_string())?
         .ok_or("Session not found")?;
-    
-    let attendee_count = live_db::count_attendees(pool, session_id).await
+
+    let attendee_count = live_db::count_attendees(pool, session_id)
+        .await
         .map_err(|e| e.to_string())?;
-    
-    let summary = live_db::get_attendance_summary(pool, session_id).await
+
+    let summary = live_db::get_attendance_summary(pool, session_id)
+        .await
         .map_err(|e| e.to_string())?
         .unwrap_or(AttendanceSummary {
             session_id,
@@ -184,7 +203,7 @@ pub async fn get_session(
             excused: 0,
             attendance_rate: 0.0,
         });
-    
+
     Ok(SessionDetailResponse {
         session,
         attendee_count,
@@ -202,7 +221,7 @@ pub async fn list_sessions(
     let (sessions, total) = live_db::list_sessions(pool, course_id, status, page, per_page)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     Ok(SessionListResponse {
         sessions,
         total,
@@ -216,14 +235,12 @@ pub async fn update_session(
     session_id: Uuid,
     req: &UpdateSessionRequest,
 ) -> Result<LiveSession, String> {
-    live_db::update_session(pool, session_id, req).await
+    live_db::update_session(pool, session_id, req)
+        .await
         .map_err(|e| e.to_string())
 }
 
-pub async fn cancel_session(
-    pool: &PgPool,
-    session_id: Uuid,
-) -> Result<LiveSession, String> {
+pub async fn cancel_session(pool: &PgPool, session_id: Uuid) -> Result<LiveSession, String> {
     let req = UpdateSessionRequest {
         title: None,
         description: None,
@@ -232,14 +249,11 @@ pub async fn cancel_session(
         status: Some(SessionStatus::Cancelled),
         max_participants: None,
     };
-    
+
     update_session(pool, session_id, &req).await
 }
 
-pub async fn start_session(
-    pool: &PgPool,
-    session_id: Uuid,
-) -> Result<LiveSession, String> {
+pub async fn start_session(pool: &PgPool, session_id: Uuid) -> Result<LiveSession, String> {
     let req = UpdateSessionRequest {
         title: None,
         description: None,
@@ -248,14 +262,11 @@ pub async fn start_session(
         status: Some(SessionStatus::Live),
         max_participants: None,
     };
-    
+
     update_session(pool, session_id, &req).await
 }
 
-pub async fn end_session(
-    pool: &PgPool,
-    session_id: Uuid,
-) -> Result<LiveSession, String> {
+pub async fn end_session(pool: &PgPool, session_id: Uuid) -> Result<LiveSession, String> {
     let req = UpdateSessionRequest {
         title: None,
         description: None,
@@ -264,7 +275,7 @@ pub async fn end_session(
         status: Some(SessionStatus::Ended),
         max_participants: None,
     };
-    
+
     update_session(pool, session_id, &req).await
 }
 
@@ -275,7 +286,8 @@ pub async fn mark_attendance(
     marker_id: Uuid,
     req: &MarkAttendanceRequest,
 ) -> Result<Attendance, String> {
-    live_db::mark_attendance(pool, session_id, marker_id, req).await
+    live_db::mark_attendance(pool, session_id, marker_id, req)
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -286,7 +298,7 @@ pub async fn bulk_mark_attendance(
     req: &BulkAttendanceRequest,
 ) -> Result<Vec<Attendance>, String> {
     let mut results = Vec::new();
-    
+
     for attendance_req in &req.attendances {
         let result = mark_attendance(
             pool,
@@ -297,11 +309,12 @@ pub async fn bulk_mark_attendance(
                 status: attendance_req.status,
                 notes: attendance_req.notes.clone(),
             },
-        ).await?;
-        
+        )
+        .await?;
+
         results.push(result);
     }
-    
+
     Ok(results)
 }
 
@@ -309,7 +322,8 @@ pub async fn get_session_attendance(
     pool: &PgPool,
     session_id: Uuid,
 ) -> Result<Vec<Attendance>, String> {
-    live_db::get_session_attendance(pool, session_id).await
+    live_db::get_session_attendance(pool, session_id)
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -318,7 +332,8 @@ pub async fn get_user_attendance(
     user_id: Uuid,
     course_id: Option<Uuid>,
 ) -> Result<Vec<Attendance>, String> {
-    live_db::get_user_attendance(pool, user_id, course_id).await
+    live_db::get_user_attendance(pool, user_id, course_id)
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -327,7 +342,8 @@ pub async fn create_recurring_schedule(
     pool: &PgPool,
     req: &CreateRecurringScheduleRequest,
 ) -> Result<RecurringSchedule, String> {
-    live_db::create_recurring_schedule(pool, req).await
+    live_db::create_recurring_schedule(pool, req)
+        .await
         .map_err(|e| e.to_string())
 }
 

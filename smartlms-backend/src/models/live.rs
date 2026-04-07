@@ -1,6 +1,6 @@
 // Live class model - video sessions, scheduling, attendance
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Video provider
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,9 +97,9 @@ pub struct RecurringSchedule {
     pub course_id: uuid::Uuid,
     pub title: String,
     pub instructor_id: uuid::Uuid,
-    pub day_of_week: i32,        // 0=Sunday, 6=Saturday
-    pub start_time: String,      // "14:00"
-    pub end_time: String,        // "15:30"
+    pub day_of_week: i32,   // 0=Sunday, 6=Saturday
+    pub start_time: String, // "14:00"
+    pub end_time: String,   // "15:30"
     pub duration_minutes: i32,
     pub start_date: DateTime<Utc>,
     pub end_date: Option<DateTime<Utc>>,

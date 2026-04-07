@@ -1,8 +1,8 @@
 // Institution onboarding service - signup, setup wizard, sandbox
-use crate::models::institution::{Institution, CreateInstitutionRequest};
+use crate::models::institution::{CreateInstitutionRequest, Institution};
 use crate::tenant::{InstitutionConfig, PlanTier, QuotaLimits};
+use chrono::{Duration, Utc};
 use sqlx::PgPool;
-use chrono::{Utc, Duration};
 
 /// Onboarding step tracking
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -31,28 +31,48 @@ impl OnboardingState {
         } else {
             now + Duration::days(30) // 30 days for production
         };
-        
+
         Self {
             institution_id,
             current_step: 1,
             steps: vec![
-                OnboardingStep { step: 1, completed: false, data: serde_json::json!({}) },
-                OnboardingStep { step: 2, completed: false, data: serde_json::json!({}) },
-                OnboardingStep { step: 3, completed: false, data: serde_json::json!({}) },
-                OnboardingStep { step: 4, completed: false, data: serde_json::json!({}) },
-                OnboardingStep { step: 5, completed: false, data: serde_json::json!({}) },
+                OnboardingStep {
+                    step: 1,
+                    completed: false,
+                    data: serde_json::json!({}),
+                },
+                OnboardingStep {
+                    step: 2,
+                    completed: false,
+                    data: serde_json::json!({}),
+                },
+                OnboardingStep {
+                    step: 3,
+                    completed: false,
+                    data: serde_json::json!({}),
+                },
+                OnboardingStep {
+                    step: 4,
+                    completed: false,
+                    data: serde_json::json!({}),
+                },
+                OnboardingStep {
+                    step: 5,
+                    completed: false,
+                    data: serde_json::json!({}),
+                },
             ],
             started_at: now,
             expires_at: expiry,
             is_sandbox,
         }
     }
-    
+
     /// Check if onboarding is expired
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
-    
+
     /// Get progress percentage
     pub fn progress(&self) -> f32 {
         let completed = self.steps.iter().filter(|s| s.completed).count() as f32;
@@ -62,11 +82,11 @@ impl OnboardingState {
 
 /// Onboarding step definitions (for documentation/API)
 pub const ONBOARDING_STEPS: &[&str] = &[
-    "Basic Info",      // Name, slug, type
-    "Admin User",     // Create first admin
-    "Database",       // Configure DB connection
-    " Branding",      // Logo, colors, domain
-    "Verification",   // Email verification, license key
+    "Basic Info",   // Name, slug, type
+    "Admin User",   // Create first admin
+    "Database",     // Configure DB connection
+    " Branding",    // Logo, colors, domain
+    "Verification", // Email verification, license key
 ];
 
 /// Create new institution during signup
@@ -79,23 +99,24 @@ pub async fn create_institution(
     if crate::db::institution::find_by_slug(pool, &req.slug)
         .await
         .map_err(|e| e.to_string())?
-        .is_some() 
+        .is_some()
     {
         return Err("Institution slug already taken".to_string());
     }
-    
+
     // Create with default config based on plan
     let (plan, quotas) = if is_sandbox {
         (Some(PlanTier::Starter), Some(QuotaLimits::default()))
     } else {
         (req.plan_tier, None)
     };
-    
-    let institution = crate::db::institution::create(pool, req).await
+
+    let institution = crate::db::institution::create(pool, req)
+        .await
         .map_err(|e| e.to_string())?;
-    
+
     // Note: In production, you'd also provision the per-institution database here
-    
+
     Ok(Institution {
         id: institution.id,
         slug: institution.slug,
@@ -119,7 +140,7 @@ pub async fn init_onboarding(
     is_sandbox: bool,
 ) -> Result<OnboardingState, String> {
     let state = OnboardingState::new(institution_id, is_sandbox);
-    
+
     // Store in DB (implementation depends on your schema)
     // For now, return the state
     Ok(state)
@@ -160,15 +181,15 @@ pub fn validate_slug(slug: &str) -> Result<(), String> {
     if slug.len() < 3 || slug.len() > 50 {
         return Err("Slug must be 3-50 characters".to_string());
     }
-    
+
     if !slug.chars().all(|c| c.is_alphanumeric() || c == '-') {
         return Err("Slug can only contain letters, numbers, and hyphens".to_string());
     }
-    
+
     if slug.chars().next().unwrap().is_numeric() {
         return Err("Slug cannot start with a number".to_string());
     }
-    
+
     Ok(())
 }
 
@@ -177,9 +198,9 @@ pub fn check_sandbox_status(state: &OnboardingState) -> SandboxStatus {
     if state.is_expired() {
         return SandboxStatus::Expired;
     }
-    
+
     let days_remaining = (state.expires_at - Utc::now()).num_days();
-    
+
     if days_remaining <= 3 {
         SandboxStatus::ExpiringSoon(days_remaining as i32)
     } else {
@@ -189,7 +210,7 @@ pub fn check_sandbox_status(state: &OnboardingState) -> SandboxStatus {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SandboxStatus {
-    Active(i32),        // Days remaining
+    Active(i32),       // Days remaining
     ExpiringSoon(i32), // Days until expiry
     Expired,
 }

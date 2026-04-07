@@ -1,7 +1,7 @@
 // Timetable & Scheduling System — Physical class timetables and exam scheduling
+use chrono::{DateTime, NaiveTime, Utc, Weekday};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, NaiveTime, Utc, Weekday};
 
 /// A physical room or venue
 #[derive(Debug, Clone, Serialize, Deserialize)]

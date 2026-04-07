@@ -48,7 +48,7 @@ pub struct MigrationError {
 // SERVICE FUNCTIONS
 pub mod migration {
     use super::*;
-    
+
     /// Start migration from Moodle backup
     pub async fn start_moodle_migration(
         pool: &PgPool,
@@ -56,7 +56,7 @@ pub mod migration {
         backup_file_url: &str,
     ) -> Result<MigrationJob, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO migration_jobs (id, institution_id, source_platform, status, progress_percent, 
              records_total, records_processed, created_at)
@@ -66,9 +66,9 @@ pub mod migration {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // In production: spawn async task to process Moodle XML
-        
+
         Ok(MigrationJob {
             id,
             institution_id,
@@ -82,7 +82,7 @@ pub mod migration {
             completed_at: None,
         })
     }
-    
+
     /// Start migration from Canvas QTI
     pub async fn start_canvas_migration(
         pool: &PgPool,
@@ -90,7 +90,7 @@ pub mod migration {
         qti_file_url: &str,
     ) -> Result<MigrationJob, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO migration_jobs (id, institution_id, source_platform, status, progress_percent,
              records_total, records_processed, created_at)
@@ -100,7 +100,7 @@ pub mod migration {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(MigrationJob {
             id,
             institution_id,
@@ -114,7 +114,7 @@ pub mod migration {
             completed_at: None,
         })
     }
-    
+
     /// Get migration status
     pub async fn get_migration_status(
         pool: &PgPool,
@@ -129,7 +129,7 @@ pub mod migration {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(row.map(|r| MigrationJob {
             id: r.id,
             institution_id: r.institution_id,
@@ -174,7 +174,7 @@ pub struct SyncQueueItem {
 // SERVICE FUNCTIONS
 pub mod offline {
     use super::*;
-    
+
     /// Get offline configuration
     pub async fn get_offline_config(
         pool: &PgPool,
@@ -188,7 +188,7 @@ pub mod offline {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(row.unwrap_or(OfflineConfig {
             enabled: true,
             cache_courses: true,
@@ -197,7 +197,7 @@ pub mod offline {
             sync_on_wifi_only: false,
         }))
     }
-    
+
     /// Queue operation for sync
     pub async fn queue_sync(
         pool: &PgPool,
@@ -207,7 +207,7 @@ pub mod offline {
         payload: serde_json::Value,
     ) -> Result<SyncQueueItem, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO sync_queue (id, user_id, operation, endpoint, payload, created_at, attempts)
              VALUES ($1, $2, $3, $4, $5, $6, 0)",
@@ -216,7 +216,7 @@ pub mod offline {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(SyncQueueItem {
             id,
             user_id,

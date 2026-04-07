@@ -1,6 +1,6 @@
 // Course model - courses, modules, lessons, content
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Course status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,8 +53,8 @@ pub struct Lesson {
     pub module_id: uuid::Uuid,
     pub title: String,
     pub lesson_type: LessonType,
-    pub content: Option<String>,          // HTML/Markdown for text lessons
-    pub video_url: Option<String>,        // Video hosting URL
+    pub content: Option<String>,   // HTML/Markdown for text lessons
+    pub video_url: Option<String>, // Video hosting URL
     pub video_duration_seconds: Option<i32>,
     pub duration_minutes: i32,
     pub order: i32,

@@ -1,15 +1,17 @@
 // Institution API routes - signup, setup, onboarding
+use crate::models::institution::{
+    CreateInstitutionRequest, Institution, InstitutionListResponse, UpdateInstitutionRequest,
+};
+use crate::services::license;
+use crate::services::onboarding::{self, OnboardingState, SandboxStatus};
+use crate::tenant::InstitutionCtx;
 use axum::{
-    extract::{State, Json, Path, Query, Extension},
+    extract::{Extension, Json, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
-use crate::models::institution::{CreateInstitutionRequest, UpdateInstitutionRequest, Institution, InstitutionListResponse};
-use crate::services::onboarding::{self, OnboardingState, SandboxStatus};
-use crate::services::license;
-use crate::tenant::InstitutionCtx;
 use serde::Deserialize;
 
 /// Pagination params
@@ -21,7 +23,10 @@ pub struct Pagination {
 
 impl Default for Pagination {
     fn default() -> Self {
-        Self { page: Some(1), per_page: Some(20) }
+        Self {
+            page: Some(1),
+            per_page: Some(20),
+        }
     }
 }
 
@@ -34,17 +39,20 @@ pub async fn create_institution(
     if let Err(e) = onboarding::validate_slug(&req.slug) {
         return Err((StatusCode::BAD_REQUEST, e));
     }
-    
+
     // Check for license key if provided
     if let Some(ref key) = req.license_key {
-        let status = license::validate_license(key)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
-        
+        let status =
+            license::validate_license(key).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
         if !status.valid {
-            return Err((StatusCode::BAD_REQUEST, status.message.unwrap_or("Invalid license".to_string())));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                status.message.unwrap_or("Invalid license".to_string()),
+            ));
         }
     }
-    
+
     match onboarding::create_institution(&pool, &req, false).await {
         Ok(inst) => Ok(Json(inst)),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
@@ -52,9 +60,7 @@ pub async fn create_institution(
 }
 
 /// Get institution by ID
-pub async fn get_institution(
-    Extension(ctx): Extension<InstitutionCtx>,
-) -> Json<Institution> {
+pub async fn get_institution(Extension(ctx): Extension<InstitutionCtx>) -> Json<Institution> {
     // Return basic info from context
     Json(Institution {
         id: ctx.id,
@@ -92,7 +98,7 @@ pub async fn list_institutions(
 ) -> Result<Json<InstitutionListResponse>, (StatusCode, String)> {
     let page = pagination.page.unwrap_or(1);
     let per_page = pagination.per_page.unwrap_or(20).min(100);
-    
+
     match crate::db::institution::list(&pool, page, per_page).await {
         Ok((institutions, total)) => Ok(Json(InstitutionListResponse {
             institutions,

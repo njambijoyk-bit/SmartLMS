@@ -1,14 +1,14 @@
 // Auth API routes - login, register, password reset
+use crate::models::user::{LoginRequest, LoginResponse, RegisterRequest};
+use crate::services::auth as auth_service;
+use crate::tenant::InstitutionCtx;
 use axum::{
-    extract::{State, Json, Extension},
+    extract::{Extension, Json, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Router,
 };
-use crate::models::user::{LoginRequest, LoginResponse, RegisterRequest};
-use crate::services::auth as auth_service;
-use crate::tenant::InstitutionCtx;
 
 /// Login handler
 pub async fn login(
@@ -39,9 +39,13 @@ pub async fn change_password(
     State(pool): State<sqlx::PgPool>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    match auth_service::change_password(&pool, user.id, &req.old_password, &req.new_password).await {
+    match auth_service::change_password(&pool, user.id, &req.old_password, &req.new_password).await
+    {
         Ok(true) => Ok(StatusCode::OK),
-        Ok(false) => Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to change password".to_string())),
+        Ok(false) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to change password".to_string(),
+        )),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }
 }
@@ -58,9 +62,7 @@ pub async fn request_password_reset(
 }
 
 /// Logout handler (client-side token removal, but we can track it)
-pub async fn logout(
-    Extension(user): Extension<crate::models::user::User>,
-) -> StatusCode {
+pub async fn logout(Extension(user): Extension<crate::models::user::User>) -> StatusCode {
     // TODO: In production, add token to blacklist for faster invalidation
     tracing::info!("User {} logged out", user.email);
     StatusCode::NO_CONTENT

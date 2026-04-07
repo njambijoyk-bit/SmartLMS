@@ -1,7 +1,7 @@
 // Automation Rules Service - Visual rule builder, triggers, and webhooks
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Automation rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,7 +113,7 @@ pub struct RuleExecutionLog {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Create a new automation rule
     pub async fn create_rule(
         pool: &PgPool,
@@ -125,19 +125,24 @@ pub mod service {
     ) -> Result<AutomationRule, String> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         sqlx::query!(
             "INSERT INTO automation_rules (id, institution_id, name, trigger, conditions, 
              actions, is_active, execution_count, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, false, 0, $7, $8)",
-            id, institution_id, name, serde_json::to_string(&trigger).unwrap(),
-            serde_json::to_string(&conditions).unwrap(), serde_json::to_string(&actions).unwrap(),
-            now, now
+            id,
+            institution_id,
+            name,
+            serde_json::to_string(&trigger).unwrap(),
+            serde_json::to_string(&conditions).unwrap(),
+            serde_json::to_string(&actions).unwrap(),
+            now,
+            now
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(AutomationRule {
             id,
             institution_id,
@@ -153,7 +158,7 @@ pub mod service {
             updated_at: now,
         })
     }
-    
+
     /// Enable/disable a rule
     pub async fn set_rule_active(
         pool: &PgPool,
@@ -162,15 +167,17 @@ pub mod service {
     ) -> Result<(), String> {
         sqlx::query!(
             "UPDATE automation_rules SET is_active = $1, updated_at = $2 WHERE id = $3",
-            is_active, Utc::now(), rule_id
+            is_active,
+            Utc::now(),
+            rule_id
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(())
     }
-    
+
     /// Process an event and execute matching rules
     pub async fn process_event(
         pool: &PgPool,
@@ -180,42 +187,43 @@ pub mod service {
     ) -> Result<Vec<RuleExecutionLog>, String> {
         // Find all active rules with matching trigger
         let rules = get_rules_for_event(pool, institution_id, event_type).await?;
-        
+
         let mut logs = Vec::new();
-        
+
         for rule in rules {
             // Check conditions
             if evaluate_conditions(&rule.conditions, &event_data) {
                 // Execute actions
                 let actions_result = execute_actions(pool, &rule, &event_data).await;
-                
+
                 let log = RuleExecutionLog {
                     id: Uuid::new_v4(),
                     rule_id: rule.id,
                     trigger_event: event_type,
                     conditions_met: true,
-                    actions_executed: vec![],  // Track which actions ran
+                    actions_executed: vec![], // Track which actions ran
                     error: actions_result.err(),
                     executed_at: Utc::now(),
                 };
-                
+
                 // Update rule execution count
                 sqlx::query!(
                     "UPDATE automation_rules SET execution_count = execution_count + 1, 
                      last_executed_at = $1 WHERE id = $2",
-                    Utc::now(), rule.id
+                    Utc::now(),
+                    rule.id
                 )
                 .execute(pool)
                 .await
                 .ok();
-                
+
                 logs.push(log);
             }
         }
-        
+
         Ok(logs)
     }
-    
+
     /// Execute actions for a rule
     async fn execute_actions(
         pool: &PgPool,
@@ -225,16 +233,16 @@ pub mod service {
         for action in &rule.actions {
             match action.action_type {
                 ActionType::SendEmail => {
-                    let config: EmailConfig = serde_json::from_value(action.config.clone())
-                        .map_err(|e| e.to_string())?;
+                    let config: EmailConfig =
+                        serde_json::from_value(action.config.clone()).map_err(|e| e.to_string())?;
                     send_email(&config, event_data).await?;
                 }
                 ActionType::SendNotification => {
                     // Create notification for user
                 }
                 ActionType::Webhook => {
-                    let config: WebhookConfig = serde_json::from_value(action.config.clone())
-                        .map_err(|e| e.to_string())?;
+                    let config: WebhookConfig =
+                        serde_json::from_value(action.config.clone()).map_err(|e| e.to_string())?;
                     call_webhook(&config, event_data).await?;
                 }
                 ActionType::IssueCertificate => {
@@ -246,10 +254,10 @@ pub mod service {
                 _ => {}
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Get rules for specific event type
     async fn get_rules_for_event(
         pool: &PgPool,
@@ -265,29 +273,32 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().filter_map(|r| {
-            let trigger: Trigger = serde_json::from_str(&r.trigger).ok()?;
-            match trigger {
-                Trigger::Event { event_type: et } if et == event_type => Some(AutomationRule {
-                    id: r.id,
-                    institution_id: r.institution_id,
-                    name: r.name,
-                    description: r.description,
-                    trigger,
-                    conditions: serde_json::from_str(&r.conditions).unwrap_or_default(),
-                    actions: serde_json::from_str(&r.actions).unwrap_or_default(),
-                    is_active: r.is_active,
-                    execution_count: r.execution_count,
-                    last_executed_at: r.last_executed_at,
-                    created_at: r.created_at,
-                    updated_at: r.updated_at,
-                }),
-                _ => None,
-            }
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .filter_map(|r| {
+                let trigger: Trigger = serde_json::from_str(&r.trigger).ok()?;
+                match trigger {
+                    Trigger::Event { event_type: et } if et == event_type => Some(AutomationRule {
+                        id: r.id,
+                        institution_id: r.institution_id,
+                        name: r.name,
+                        description: r.description,
+                        trigger,
+                        conditions: serde_json::from_str(&r.conditions).unwrap_or_default(),
+                        actions: serde_json::from_str(&r.actions).unwrap_or_default(),
+                        is_active: r.is_active,
+                        execution_count: r.execution_count,
+                        last_executed_at: r.last_executed_at,
+                        created_at: r.created_at,
+                        updated_at: r.updated_at,
+                    }),
+                    _ => None,
+                }
+            })
+            .collect())
     }
-    
+
     /// Get all rules for institution
     pub async fn list_rules(
         pool: &PgPool,
@@ -302,40 +313,53 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| AutomationRule {
-            id: r.id,
-            institution_id: r.institution_id,
-            name: r.name,
-            description: r.description,
-            trigger: serde_json::from_str(&r.trigger).unwrap_or(Trigger::Event { event_type: EventType::UserRegistered }),
-            conditions: serde_json::from_str(&r.conditions).unwrap_or_default(),
-            actions: serde_json::from_str(&r.actions).unwrap_or_default(),
-            is_active: r.is_active,
-            execution_count: r.execution_count,
-            last_executed_at: r.last_executed_at,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| AutomationRule {
+                id: r.id,
+                institution_id: r.institution_id,
+                name: r.name,
+                description: r.description,
+                trigger: serde_json::from_str(&r.trigger).unwrap_or(Trigger::Event {
+                    event_type: EventType::UserRegistered,
+                }),
+                conditions: serde_json::from_str(&r.conditions).unwrap_or_default(),
+                actions: serde_json::from_str(&r.actions).unwrap_or_default(),
+                is_active: r.is_active,
+                execution_count: r.execution_count,
+                last_executed_at: r.last_executed_at,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            })
+            .collect())
     }
 }
 
 fn evaluate_conditions(conditions: &[RuleCondition], data: &serde_json::Value) -> bool {
     for cond in conditions {
         let field_value = data.get(&cond.field);
-        
+
         match cond.operator {
             ConditionOperator::Equals => {
-                if field_value != Some(&cond.value) { return false; }
+                if field_value != Some(&cond.value) {
+                    return false;
+                }
             }
             ConditionOperator::NotEquals => {
-                if field_value == Some(&cond.value) { return false; }
+                if field_value == Some(&cond.value) {
+                    return false;
+                }
             }
             ConditionOperator::IsEmpty => {
-                if field_value.is_some() { return false; }
+                if field_value.is_some() {
+                    return false;
+                }
             }
             ConditionOperator::IsNotEmpty => {
-                if field_value.is_none() { return false; }
+                if field_value.is_none() {
+                    return false;
+                }
             }
             _ => {}
         }

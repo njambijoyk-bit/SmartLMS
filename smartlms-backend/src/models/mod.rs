@@ -1,18 +1,20 @@
 // Models module - data structures
-pub mod user;
-pub mod institution;
-pub mod course;
+pub mod abac;
 pub mod assessment;
-pub mod live;
 pub mod attendance;
 pub mod backup;
-pub mod abac;
+pub mod course;
+pub mod institution;
+pub mod live;
+pub mod user;
 
-pub use user::{User, LoginRequest, RegisterRequest, LoginResponse};
-pub use institution::{Institution, CreateInstitutionRequest, UpdateInstitutionRequest, InstitutionListResponse};
-pub use course::*;
+pub use abac::*;
 pub use assessment::*;
-pub use live::*;
 pub use attendance::*;
 pub use backup::*;
-pub use abac::*;
+pub use course::*;
+pub use institution::{
+    CreateInstitutionRequest, Institution, InstitutionListResponse, UpdateInstitutionRequest,
+};
+pub use live::*;
+pub use user::{LoginRequest, LoginResponse, RegisterRequest, User};

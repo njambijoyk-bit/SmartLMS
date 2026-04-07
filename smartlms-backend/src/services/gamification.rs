@@ -1,7 +1,7 @@
 // Gamification Service - Badges, XP, levels, and leaderboards
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// User gamification profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ pub enum BadgeType {
 /// Badge criteria for earning
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BadgeCriteria {
-    pub criteria_type: String,      // "courses_completed", "quiz_score", "login_streak", etc.
+    pub criteria_type: String, // "courses_completed", "quiz_score", "login_streak", etc.
     pub threshold: i32,
     pub course_id: Option<uuid::Uuid>,
 }
@@ -61,7 +61,7 @@ pub struct XpTransaction {
     pub user_id: uuid::Uuid,
     pub amount: i64,
     pub reason: String,
-    pub source_type: String,      // "course_completed", "quiz_passed", "login_bonus"
+    pub source_type: String, // "course_completed", "quiz_passed", "login_bonus"
     pub source_id: Option<uuid::Uuid>,
     pub created_at: DateTime<Utc>,
 }
@@ -89,7 +89,7 @@ pub struct LevelConfig {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Award XP to user
     pub async fn award_xp(
         pool: &PgPool,
@@ -100,7 +100,7 @@ pub mod service {
         source_id: Option<uuid::Uuid>,
     ) -> Result<GamificationProfile, String> {
         let tx_id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO xp_transactions (id, user_id, amount, reason, source_type, source_id, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -109,26 +109,28 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Update user profile total XP
         sqlx::query!(
             "UPDATE gamification_profiles SET total_xp = total_xp + $1, last_activity_at = $2 
              WHERE user_id = $3",
-            amount, Utc::now(), user_id
+            amount,
+            Utc::now(),
+            user_id
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Check for level up
         let profile = check_level_up(pool, user_id).await?;
-        
+
         // Check for badge eligibility
         check_badges(pool, user_id).await?;
-        
+
         Ok(profile)
     }
-    
+
     /// Check and update level
     async fn check_level_up(
         pool: &PgPool,
@@ -141,43 +143,44 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         let new_level = calculate_level(row.total_xp);
-        
+
         if new_level > row.level {
             sqlx::query!(
                 "UPDATE gamification_profiles SET level = $1 WHERE user_id = $2",
-                new_level, user_id
+                new_level,
+                user_id
             )
             .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
-            
+
             tracing::info!("User {} leveled up to {}", user_id, new_level);
         }
-        
+
         // Return updated profile
         get_profile(pool, user_id).await
     }
-    
+
     /// Calculate level from XP
     fn calculate_level(xp: i64) -> i32 {
         // Level formula: each level requires more XP
         // Level 1: 0, Level 2: 100, Level 3: 250, etc.
         let levels = vec![
-            0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 12000,
-            17000, 23000, 30000, 40000, 52000, 66000, 82000, 100000,
+            0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 12000, 17000, 23000, 30000, 40000,
+            52000, 66000, 82000, 100000,
         ];
-        
+
         for (i, req) in levels.iter().enumerate() {
             if xp < *req {
                 return i as i32;
             }
         }
-        
+
         levels.len() as i32
     }
-    
+
     /// Award badge to user
     pub async fn award_badge(
         pool: &PgPool,
@@ -187,41 +190,51 @@ pub mod service {
         // Check if already earned
         let existing = sqlx::query!(
             "SELECT id FROM earned_badges WHERE user_id = $1 AND badge_id = $2",
-            user_id, badge_id
+            user_id,
+            badge_id
         )
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         if existing.is_some() {
             return Err("Badge already earned".to_string());
         }
-        
+
         // Get badge details for XP reward
-        let badge = sqlx::query!(
-            "SELECT xp_reward FROM badges WHERE id = $1",
-            badge_id
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-        
+        let badge = sqlx::query!("SELECT xp_reward FROM badges WHERE id = $1", badge_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO earned_badges (id, user_id, badge_id, earned_at)
              VALUES ($1, $2, $3, $4)",
-            id, user_id, badge_id, Utc::now()
+            id,
+            user_id,
+            badge_id,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Award XP for badge
         if badge.xp_reward > 0 {
-            award_xp(pool, user_id, badge.xp_reward, "Badge earned", "badge", Some(badge_id)).await.ok();
+            award_xp(
+                pool,
+                user_id,
+                badge.xp_reward,
+                "Badge earned",
+                "badge",
+                Some(badge_id),
+            )
+            .await
+            .ok();
         }
-        
+
         Ok(EarnedBadge {
             id,
             user_id,
@@ -230,12 +243,9 @@ pub mod service {
             certificate_id: None,
         })
     }
-    
+
     /// Check badge eligibility
-    async fn check_badges(
-        pool: &PgPool,
-        user_id: uuid::Uuid,
-    ) -> Result<(), String> {
+    async fn check_badges(pool: &PgPool, user_id: uuid::Uuid) -> Result<(), String> {
         // Get all badges not yet earned
         let rows = sqlx::query!(
             "SELECT b.id, b.criteria_type, b.threshold, b.course_id
@@ -246,7 +256,7 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         for badge in rows {
             let eligible = match badge.criteria_type.as_str() {
                 "courses_completed" => {
@@ -265,15 +275,15 @@ pub mod service {
                 }
                 _ => false,
             };
-            
+
             if eligible {
                 award_badge(pool, user_id, badge.id).await.ok();
             }
         }
-        
+
         Ok(())
     }
-    
+
     async fn get_login_streak(pool: &PgPool, user_id: uuid::Uuid) -> Result<i32, String> {
         // Check consecutive days
         let count: Option<i32> = sqlx::query_scalar!(
@@ -285,10 +295,10 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(count.unwrap_or(0))
     }
-    
+
     /// Get user profile
     pub async fn get_profile(
         pool: &PgPool,
@@ -302,7 +312,7 @@ pub mod service {
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         // Get badges
         let badge_rows = sqlx::query!(
             "SELECT b.id, b.name, b.description, b.icon_url, b.badge_type, b.xp_reward
@@ -314,21 +324,24 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        let badges: Vec<Badge> = badge_rows.into_iter().map(|b| Badge {
-            id: b.id,
-            name: b.name,
-            description: b.description,
-            icon_url: b.icon_url,
-            badge_type: BadgeType::Achievement,
-            xp_reward: b.xp_reward,
-            criteria: BadgeCriteria {
-                criteria_type: String::new(),
-                threshold: 0,
-                course_id: None,
-            },
-        }).collect();
-        
+
+        let badges: Vec<Badge> = badge_rows
+            .into_iter()
+            .map(|b| Badge {
+                id: b.id,
+                name: b.name,
+                description: b.description,
+                icon_url: b.icon_url,
+                badge_type: BadgeType::Achievement,
+                xp_reward: b.xp_reward,
+                criteria: BadgeCriteria {
+                    criteria_type: String::new(),
+                    threshold: 0,
+                    course_id: None,
+                },
+            })
+            .collect();
+
         Ok(GamificationProfile {
             user_id: row.user_id,
             total_xp: row.total_xp,
@@ -338,7 +351,7 @@ pub mod service {
             badges,
         })
     }
-    
+
     /// Get leaderboard
     pub async fn get_leaderboard(
         pool: &PgPool,
@@ -353,20 +366,25 @@ pub mod service {
              WHERE u.institution_id = $1
              ORDER BY gp.total_xp DESC
              LIMIT $2",
-            institution_id, limit
+            institution_id,
+            limit
         )
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().enumerate().map(|(i, r)| LeaderboardEntry {
-            rank: (i + 1) as i32,
-            user_id: r.user_id,
-            user_name: r.user_name,
-            avatar_url: r.avatar_url,
-            total_xp: r.total_xp,
-            level: r.level,
-            streak_days: r.streak_days,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .enumerate()
+            .map(|(i, r)| LeaderboardEntry {
+                rank: (i + 1) as i32,
+                user_id: r.user_id,
+                user_name: r.user_name,
+                avatar_url: r.avatar_url,
+                total_xp: r.total_xp,
+                level: r.level,
+                streak_days: r.streak_days,
+            })
+            .collect())
     }
 }

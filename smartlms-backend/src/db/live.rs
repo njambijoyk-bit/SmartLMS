@@ -1,8 +1,8 @@
 // Database operations for live classes
 use crate::models::live::*;
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 pub async fn create_session(
     pool: &PgPool,
@@ -21,10 +21,22 @@ pub async fn create_session(
          provider, provider_meeting_id, provider_join_url, provider_host_url, password,
          scheduled_start, scheduled_end, status, is_recording_enabled, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
-        id, req.title, req.description, req.course_id, req.module_id, instructor_id,
-        format!("{:?}", req.provider).to_lowercase(), provider_meeting_id, provider_join_url,
-        provider_host_url, password, req.scheduled_start, req.scheduled_end, "scheduled",
-        req.is_recording_enabled.unwrap_or(false), now
+        id,
+        req.title,
+        req.description,
+        req.course_id,
+        req.module_id,
+        instructor_id,
+        format!("{:?}", req.provider).to_lowercase(),
+        provider_meeting_id,
+        provider_join_url,
+        provider_host_url,
+        password,
+        req.scheduled_start,
+        req.scheduled_end,
+        "scheduled",
+        req.is_recording_enabled.unwrap_or(false),
+        now
     )
     .execute(pool)
     .await?;
@@ -97,40 +109,44 @@ pub async fn list_sessions(
     per_page: i64,
 ) -> Result<(Vec<LiveSession>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
-    
+
     let rows = sqlx::query!(
         "SELECT id, title, description, course_id, module_id, instructor_id, provider,
                 provider_meeting_id, provider_join_url, provider_host_url, password,
                 scheduled_start, scheduled_end, actual_start, actual_end, status,
                 max_participants, is_recording_enabled, recording_url, created_at
          FROM live_sessions ORDER BY scheduled_start DESC LIMIT $1 OFFSET $2",
-        per_page, offset
+        per_page,
+        offset
     )
     .fetch_all(pool)
     .await?;
 
-    let sessions: Vec<LiveSession> = rows.into_iter().map(|r| LiveSession {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        course_id: r.course_id,
-        module_id: r.module_id,
-        instructor_id: r.instructor_id,
-        provider: VideoProvider::Zoom,
-        provider_meeting_id: r.provider_meeting_id,
-        provider_join_url: r.provider_join_url,
-        provider_host_url: r.provider_host_url,
-        password: r.password,
-        scheduled_start: r.scheduled_start,
-        scheduled_end: r.scheduled_end,
-        actual_start: r.actual_start,
-        actual_end: r.actual_end,
-        status: SessionStatus::Scheduled,
-        max_participants: r.max_participants,
-        is_recording_enabled: r.is_recording_enabled,
-        recording_url: r.recording_url,
-        created_at: r.created_at,
-    }).collect();
+    let sessions: Vec<LiveSession> = rows
+        .into_iter()
+        .map(|r| LiveSession {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            course_id: r.course_id,
+            module_id: r.module_id,
+            instructor_id: r.instructor_id,
+            provider: VideoProvider::Zoom,
+            provider_meeting_id: r.provider_meeting_id,
+            provider_join_url: r.provider_join_url,
+            provider_host_url: r.provider_host_url,
+            password: r.password,
+            scheduled_start: r.scheduled_start,
+            scheduled_end: r.scheduled_end,
+            actual_start: r.actual_start,
+            actual_end: r.actual_end,
+            status: SessionStatus::Scheduled,
+            max_participants: r.max_participants,
+            is_recording_enabled: r.is_recording_enabled,
+            recording_url: r.recording_url,
+            created_at: r.created_at,
+        })
+        .collect();
 
     Ok((sessions, sessions.len() as i64))
 }
@@ -141,15 +157,17 @@ pub async fn update_session(
     req: &UpdateSessionRequest,
 ) -> Result<LiveSession, sqlx::Error> {
     let now = Utc::now();
-    
+
     if let Some(status) = &req.status {
         sqlx::query!(
             "UPDATE live_sessions SET status = $1, updated_at = $2 WHERE id = $3",
-            format!("{:?}", status).to_lowercase(), now, session_id
+            format!("{:?}", status).to_lowercase(),
+            now,
+            session_id
         )
         .execute(pool)
         .await?;
-        
+
         // Update actual start/end times
         match status {
             SessionStatus::Live => {
@@ -158,14 +176,18 @@ pub async fn update_session(
                     .await?;
             }
             SessionStatus::Ended => {
-                sqlx::query!("UPDATE live_sessions SET actual_end = $1 WHERE id = $2 AND actual_end IS NULL", now, session_id)
-                    .execute(pool)
-                    .await?;
+                sqlx::query!(
+                    "UPDATE live_sessions SET actual_end = $1 WHERE id = $2 AND actual_end IS NULL",
+                    now,
+                    session_id
+                )
+                .execute(pool)
+                .await?;
             }
             _ => {}
         }
     }
-    
+
     get_session(pool, session_id).await.map(|o| o.unwrap())
 }
 
@@ -179,7 +201,10 @@ pub async fn count_attendees(pool: &PgPool, session_id: Uuid) -> Result<i32, sql
     Ok(row.count as i32)
 }
 
-pub async fn get_attendance_summary(pool: &PgPool, session_id: Uuid) -> Result<Option<AttendanceSummary>, sqlx::Error> {
+pub async fn get_attendance_summary(
+    pool: &PgPool,
+    session_id: Uuid,
+) -> Result<Option<AttendanceSummary>, sqlx::Error> {
     let row = sqlx::query!(
         "SELECT 
             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
@@ -192,17 +217,17 @@ pub async fn get_attendance_summary(pool: &PgPool, session_id: Uuid) -> Result<O
     )
     .fetch_one(pool)
     .await?;
-    
+
     let total = row.total.unwrap_or(0) as i32;
     let present = row.present.unwrap_or(0) as i32;
     let late = row.late.unwrap_or(0) as i32;
-    
+
     let rate = if total > 0 {
         ((present + late) as f32 / total as f32) * 100.0
     } else {
         0.0
     };
-    
+
     Ok(Some(AttendanceSummary {
         session_id,
         total_enrolled: total,
@@ -226,8 +251,13 @@ pub async fn mark_attendance(
     sqlx::query!(
         "INSERT INTO attendance (id, session_id, user_id, status, marked_by, marked_at, notes)
          VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        id, session_id, req.user_id, format!("{:?}", req.status).to_lowercase(),
-        Some(marker_id), Some(now), req.notes
+        id,
+        session_id,
+        req.user_id,
+        format!("{:?}", req.status).to_lowercase(),
+        Some(marker_id),
+        Some(now),
+        req.notes
     )
     .execute(pool)
     .await?;
@@ -243,7 +273,10 @@ pub async fn mark_attendance(
     })
 }
 
-pub async fn get_session_attendance(pool: &PgPool, session_id: Uuid) -> Result<Vec<Attendance>, sqlx::Error> {
+pub async fn get_session_attendance(
+    pool: &PgPool,
+    session_id: Uuid,
+) -> Result<Vec<Attendance>, sqlx::Error> {
     let rows = sqlx::query!(
         "SELECT id, session_id, user_id, status, marked_by, marked_at, notes
          FROM attendance WHERE session_id = $1",
@@ -252,15 +285,18 @@ pub async fn get_session_attendance(pool: &PgPool, session_id: Uuid) -> Result<V
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Attendance {
-        id: r.id,
-        session_id: r.session_id,
-        user_id: r.user_id,
-        status: AttendanceStatus::Present,
-        marked_by: r.marked_by,
-        marked_at: r.marked_at,
-        notes: r.notes,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Attendance {
+            id: r.id,
+            session_id: r.session_id,
+            user_id: r.user_id,
+            status: AttendanceStatus::Present,
+            marked_by: r.marked_by,
+            marked_at: r.marked_at,
+            notes: r.notes,
+        })
+        .collect())
 }
 
 pub async fn get_user_attendance(
@@ -278,15 +314,18 @@ pub async fn get_user_attendance(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| Attendance {
-        id: r.id,
-        session_id: r.session_id,
-        user_id: r.user_id,
-        status: AttendanceStatus::Present,
-        marked_by: r.marked_by,
-        marked_at: r.marked_at,
-        notes: r.notes,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| Attendance {
+            id: r.id,
+            session_id: r.session_id,
+            user_id: r.user_id,
+            status: AttendanceStatus::Present,
+            marked_by: r.marked_by,
+            marked_at: r.marked_at,
+            notes: r.notes,
+        })
+        .collect())
 }
 
 pub async fn create_recurring_schedule(
@@ -300,9 +339,17 @@ pub async fn create_recurring_schedule(
         "INSERT INTO recurring_schedules (id, course_id, title, instructor_id, day_of_week,
          start_time, end_time, start_date, end_date, provider, repeat_weekly, is_active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)",
-        id, req.course_id, req.title, req.instructor_id, req.day_of_week,
-        req.start_time, req.end_time, req.start_date, req.end_date,
-        format!("{:?}", req.provider).to_lowercase(), req.repeat_weekly.unwrap_or(true)
+        id,
+        req.course_id,
+        req.title,
+        req.instructor_id,
+        req.day_of_week,
+        req.start_time,
+        req.end_time,
+        req.start_date,
+        req.end_date,
+        format!("{:?}", req.provider).to_lowercase(),
+        req.repeat_weekly.unwrap_or(true)
     )
     .execute(pool)
     .await?;
@@ -311,9 +358,9 @@ pub async fn create_recurring_schedule(
         chrono::NaiveTime::parse_from_str(&req.end_time, "%H:%M")
             .unwrap()
             .signed_duration_since(
-                chrono::NaiveTime::parse_from_str(&req.start_time, "%H:%M").unwrap()
+                chrono::NaiveTime::parse_from_str(&req.start_time, "%H:%M").unwrap(),
             )
-            .num_minutes()
+            .num_minutes(),
     );
 
     Ok(RecurringSchedule {

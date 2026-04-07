@@ -1,7 +1,7 @@
 // Library & Content Repository Service - Digital library, documents, media
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Library item
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +78,7 @@ pub enum AccessType {
 // Service functions
 pub mod service {
     use super::*;
-    
+
     /// Upload/create library item
     pub async fn create_item(
         pool: &PgPool,
@@ -87,20 +87,30 @@ pub mod service {
         req: &CreateItemRequest,
     ) -> Result<LibraryItem, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO library_items (id, institution_id, title, description, item_type,
              category, tags, file_url, thumbnail_url, metadata, view_count, download_count,
              is_published, created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 0, $11, $12, $13)",
-            id, institution_id, req.title, req.description, format!("{:?}", req.item_type).to_lowercase(),
-            req.category, serde_json::to_string(&req.tags).unwrap(), req.file_url, req.thumbnail_url,
-            serde_json::to_string(&req.metadata).unwrap(), req.is_published, creator_id, Utc::now()
+            id,
+            institution_id,
+            req.title,
+            req.description,
+            format!("{:?}", req.item_type).to_lowercase(),
+            req.category,
+            serde_json::to_string(&req.tags).unwrap(),
+            req.file_url,
+            req.thumbnail_url,
+            serde_json::to_string(&req.metadata).unwrap(),
+            req.is_published,
+            creator_id,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(LibraryItem {
             id,
             institution_id,
@@ -119,7 +129,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Search library items
     pub async fn search_items(
         pool: &PgPool,
@@ -131,7 +141,7 @@ pub mod service {
         limit: i64,
     ) -> Result<Vec<LibraryItem>, String> {
         let search_pattern = format!("%{}%", query);
-        
+
         let rows = sqlx::query!(
             "SELECT id, institution_id, title, description, item_type, category, tags,
              file_url, thumbnail_url, metadata, view_count, download_count, 
@@ -140,31 +150,36 @@ pub mod service {
              WHERE institution_id = $1 AND is_published = true 
              AND (title ILIKE $2 OR description ILIKE $2)
              ORDER BY created_at DESC LIMIT $3",
-            institution_id, search_pattern, limit
+            institution_id,
+            search_pattern,
+            limit
         )
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| LibraryItem {
-            id: r.id,
-            institution_id: r.institution_id,
-            title: r.title,
-            description: r.description,
-            item_type: LibraryItemType::Document,
-            category: r.category,
-            tags: serde_json::from_str(&r.tags).unwrap_or_default(),
-            file_url: r.file_url,
-            thumbnail_url: r.thumbnail_url,
-            metadata: serde_json::from_str(&r.metadata).unwrap_or_default(),
-            view_count: r.view_count,
-            download_count: r.download_count,
-            is_published: r.is_published,
-            created_by: r.created_by,
-            created_at: r.created_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| LibraryItem {
+                id: r.id,
+                institution_id: r.institution_id,
+                title: r.title,
+                description: r.description,
+                item_type: LibraryItemType::Document,
+                category: r.category,
+                tags: serde_json::from_str(&r.tags).unwrap_or_default(),
+                file_url: r.file_url,
+                thumbnail_url: r.thumbnail_url,
+                metadata: serde_json::from_str(&r.metadata).unwrap_or_default(),
+                view_count: r.view_count,
+                download_count: r.download_count,
+                is_published: r.is_published,
+                created_by: r.created_by,
+                created_at: r.created_at,
+            })
+            .collect())
     }
-    
+
     /// Get item by ID
     pub async fn get_item(
         pool: &PgPool,
@@ -180,7 +195,7 @@ pub mod service {
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(row.map(|r| LibraryItem {
             id: r.id,
             institution_id: r.institution_id,
@@ -199,12 +214,9 @@ pub mod service {
             created_at: r.created_at,
         }))
     }
-    
+
     /// Record view
-    pub async fn record_view(
-        pool: &PgPool,
-        item_id: uuid::Uuid,
-    ) -> Result<(), String> {
+    pub async fn record_view(pool: &PgPool, item_id: uuid::Uuid) -> Result<(), String> {
         sqlx::query!(
             "UPDATE library_items SET view_count = view_count + 1 WHERE id = $1",
             item_id
@@ -212,15 +224,12 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(())
     }
-    
+
     /// Record download
-    pub async fn record_download(
-        pool: &PgPool,
-        item_id: uuid::Uuid,
-    ) -> Result<(), String> {
+    pub async fn record_download(pool: &PgPool, item_id: uuid::Uuid) -> Result<(), String> {
         sqlx::query!(
             "UPDATE library_items SET download_count = download_count + 1 WHERE id = $1",
             item_id
@@ -228,10 +237,10 @@ pub mod service {
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(())
     }
-    
+
     /// Create collection
     pub async fn create_collection(
         pool: &PgPool,
@@ -242,17 +251,23 @@ pub mod service {
         parent_id: Option<uuid::Uuid>,
     ) -> Result<LibraryCollection, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO library_collections (id, institution_id, name, description, 
              parent_id, item_count, created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, 0, $6, $7)",
-            id, institution_id, name, description, parent_id, creator_id, Utc::now()
+            id,
+            institution_id,
+            name,
+            description,
+            parent_id,
+            creator_id,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(LibraryCollection {
             id,
             institution_id,
@@ -264,7 +279,7 @@ pub mod service {
             created_at: Utc::now(),
         })
     }
-    
+
     /// Get user's bookmarks
     pub async fn get_bookmarks(
         pool: &PgPool,
@@ -277,16 +292,19 @@ pub mod service {
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
-        Ok(rows.into_iter().map(|r| LibraryBookmark {
-            id: r.id,
-            user_id: r.user_id,
-            item_id: r.item_id,
-            note: r.note,
-            created_at: r.created_at,
-        }).collect())
+
+        Ok(rows
+            .into_iter()
+            .map(|r| LibraryBookmark {
+                id: r.id,
+                user_id: r.user_id,
+                item_id: r.item_id,
+                note: r.note,
+                created_at: r.created_at,
+            })
+            .collect())
     }
-    
+
     /// Add bookmark
     pub async fn add_bookmark(
         pool: &PgPool,
@@ -295,16 +313,20 @@ pub mod service {
         note: Option<&str>,
     ) -> Result<LibraryBookmark, String> {
         let id = Uuid::new_v4();
-        
+
         sqlx::query!(
             "INSERT INTO library_bookmarks (id, user_id, item_id, note, created_at)
              VALUES ($1, $2, $3, $4, $5)",
-            id, user_id, item_id, note, Utc::now()
+            id,
+            user_id,
+            item_id,
+            note,
+            Utc::now()
         )
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-        
+
         Ok(LibraryBookmark {
             id,
             user_id,

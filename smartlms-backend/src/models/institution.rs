@@ -1,7 +1,7 @@
 // Institution model for master database
+use crate::tenant::{InstitutionConfig, PlanTier, QuotaLimits};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::tenant::{InstitutionConfig, PlanTier, QuotaLimits};
 
 /// Institution entity stored in master database
 #[derive(Debug, Clone, Serialize, Deserialize)]
