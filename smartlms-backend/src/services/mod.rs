@@ -12,5 +12,6 @@ pub mod assessments;
 pub mod live;
 pub mod attendance;
 pub mod backup;
+pub mod abac;
 
 pub use auth::{login, register, change_password, request_password_reset, reset_password};

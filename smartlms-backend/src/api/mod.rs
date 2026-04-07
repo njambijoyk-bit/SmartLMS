@@ -5,6 +5,7 @@ pub mod users;
 pub mod courses;
 pub mod assessments;
 pub mod enrollments;
+pub mod abac;
 
 /// Combine all routers into main API
 pub fn create_api_router() -> axum::Router {
@@ -14,5 +15,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/courses", courses::courses_router())
         .nest("/assessments", assessments::assessments_router())
         .nest("/live", enrollments::enrollments_router())
+        .nest("/abac", abac::abac_router())
         // .nest("/users", users::users_router())
 }
