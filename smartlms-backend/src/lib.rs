@@ -1,7 +1,4 @@
-//! SmartLMS Backend Library
-//!
-//! A complete Learning Management System engine built once,
-//! packaged and deployed to institutions worldwide.
+//! SmartLMS Backend
 
 pub mod api;
 pub mod db;

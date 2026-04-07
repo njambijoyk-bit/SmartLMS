@@ -1,13 +1,22 @@
-//! SmartLMS Core Data Models
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct User {
+    pub id: uuid::Uuid,
+    pub email: String,
+    pub password_hash: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub role: String,
+}
 
-pub mod user;
-pub mod course;
-pub mod institution;
-pub mod assessment;
-pub mod enrollment;
+#[derive(Debug, serde::Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
 
-pub use user::*;
-pub use course::*;
-pub use institution::*;
-pub use assessment::*;
-pub use enrollment::*;
+#[derive(Debug, serde::Serialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub user: User,
+    pub expires_in: i64,
+}
