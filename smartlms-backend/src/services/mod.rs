@@ -9,5 +9,6 @@ pub mod whitelabel;
 pub mod sso;
 pub mod courses;
 pub mod assessments;
+pub mod live;
 
 pub use auth::{login, register, change_password, request_password_reset, reset_password};

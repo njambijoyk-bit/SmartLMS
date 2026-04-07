@@ -13,6 +13,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/institutions", institutions::institutions_router())
         .nest("/courses", courses::courses_router())
         .nest("/assessments", assessments::assessments_router())
+        .nest("/live", enrollments::enrollments_router())
         // .nest("/users", users::users_router())
-        // .nest("/enrollments", enrollments::enrollments_router())
 }
