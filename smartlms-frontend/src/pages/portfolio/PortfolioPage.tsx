@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Plus, ExternalLink, Download,
-  Star, Eye, Lock, Globe, BookOpen,
+  Star, Eye, Lock, Globe,
   Code, FileText, Award, ChevronRight,
   Link2,
 } from 'lucide-react';

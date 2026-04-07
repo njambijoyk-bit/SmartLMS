@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Zap, Plus, Play, Pause, MoreHorizontal,
+  Zap, Plus, Play, Pause,
   Clock, GitBranch, Award, Mail, Bell, UserCheck,
   CheckCircle2, AlertTriangle, ChevronRight, Search,
   Settings, Trash2,

@@ -9,7 +9,6 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
-import { useAuth } from '../../context/AuthContext';
 
 type ThreadType = 'question' | 'discussion' | 'announcement';
 
@@ -94,12 +93,9 @@ const COURSES = ['All Courses', 'CS301 — Data Structures', 'CS302 — Database
 const fadeIn = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
 export function DiscussionForumsPage() {
-  const { user } = useAuth();
   const [courseFilter, setCourseFilter] = useState('All Courses');
   const [typeFilter, setTypeFilter] = useState<ThreadType | 'all'>('all');
   const [search, setSearch] = useState('');
-
-  const isInstructor = user?.role === 'admin' || user?.role === 'instructor';
 
   const filtered = THREADS.filter(t => {
     if (courseFilter !== 'All Courses' && !courseFilter.startsWith(t.courseCode)) return false;
@@ -186,7 +182,7 @@ export function DiscussionForumsPage() {
             <span className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider">Pinned</span>
           </div>
           {pinned.map((thread, i) => (
-            <ThreadCard key={thread.id} thread={thread} index={i} isInstructor={isInstructor} />
+            <ThreadCard key={thread.id} thread={thread} index={i} />
           ))}
         </div>
       )}
@@ -200,14 +196,14 @@ export function DiscussionForumsPage() {
           </div>
         )}
         {regular.map((thread, i) => (
-          <ThreadCard key={thread.id} thread={thread} index={i + pinned.length} isInstructor={isInstructor} />
+          <ThreadCard key={thread.id} thread={thread} index={i + pinned.length} />
         ))}
       </div>
     </div>
   );
 }
 
-function ThreadCard({ thread, index, isInstructor }: { thread: Thread; index: number; isInstructor: boolean }) {
+function ThreadCard({ thread, index }: { thread: Thread; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}

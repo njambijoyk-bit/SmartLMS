@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Building2, Globe, Palette, Shield, Database,
-  Server, Key, Users, Upload, CheckCircle2,
-  AlertTriangle, Settings, Mail, Clock, Plus,
+  Building2, Palette, Shield, Database,
+  Server, Key, Upload, CheckCircle2,
+  Settings, Mail, Plus,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';

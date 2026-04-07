@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Target, ChevronRight, Lock, CheckCircle2,
-  Search, BookOpen, Award, TrendingUp,
+  Search,
   Zap, Star, Users,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';

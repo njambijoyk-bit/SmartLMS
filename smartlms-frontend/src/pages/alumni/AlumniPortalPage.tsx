@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   GraduationCap, Download, Search, Briefcase,
-  Users, Award, BookOpen, MapPin, Calendar,
-  ExternalLink, ChevronRight, Star, Clock,
+  Users, Award, BookOpen, MapPin,
+  ExternalLink, Clock,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';

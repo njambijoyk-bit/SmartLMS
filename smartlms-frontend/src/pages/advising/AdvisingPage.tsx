@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   UserCheck, Calendar, Clock, Search,
-  ChevronRight, BookOpen, TrendingUp,
+  ChevronRight, TrendingUp,
   TrendingDown, AlertTriangle, FileText,
   MessageSquare, Target, CheckCircle2,
 } from 'lucide-react';

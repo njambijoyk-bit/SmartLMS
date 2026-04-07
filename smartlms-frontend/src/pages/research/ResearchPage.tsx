@@ -128,7 +128,6 @@ export function ResearchPage() {
   const [selectedProject, setSelectedProject] = useState<string>(PROJECTS[0].id);
   const [search, setSearch] = useState('');
 
-  const isStudent = user?.role === 'learner';
   const isSupervisor = user?.role === 'instructor' || user?.role === 'admin';
 
   const project = PROJECTS.find(p => p.id === selectedProject) || PROJECTS[0];

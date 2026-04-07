@@ -8,7 +8,6 @@ import {
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useAuth } from '../../context/AuthContext';
 
 type RPLStatus = 'draft' | 'submitted' | 'under_review' | 'challenge_scheduled' | 'granted' | 'partial' | 'denied';
