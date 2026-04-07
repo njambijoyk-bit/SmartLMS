@@ -13,8 +13,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct ListSessionsQuery {
-    pub course_id: Option<uuid::Uuid>;
-    pub status: Option<SessionStatus>;
+    pub course_id: Option<uuid::Uuid>,
+    pub status: Option<SessionStatus>,
     pub page: Option<i64>,
     pub per_page: Option<i64>,
 }

@@ -64,7 +64,7 @@ export interface ApiError {
 // ============================================================================
 
 export class SmartLMS {
-  private config: Required<SmartLMSConfig>;
+  config: Required<SmartLMSConfig>;
   
   public courses: CoursesClient;
   public users: UsersClient;
@@ -163,19 +163,19 @@ export class SmartLMS {
 abstract class BaseClient {
   constructor(protected client: SmartLMS) {}
 
-  protected async get<T>(path: string, params?: Record<string, string>): Promise<T> {
+  protected async _get<T>(path: string, params?: Record<string, string>): Promise<T> {
     return this.client.request<T>('GET', path, undefined, params);
   }
 
-  protected async post<T>(path: string, body?: unknown): Promise<T> {
+  protected async _post<T>(path: string, body?: unknown): Promise<T> {
     return this.client.request<T>('POST', path, body);
   }
 
-  protected async put<T>(path: string, body?: unknown): Promise<T> {
+  protected async _put<T>(path: string, body?: unknown): Promise<T> {
     return this.client.request<T>('PUT', path, body);
   }
 
-  protected async delete<T>(path: string): Promise<T> {
+  protected async _delete<T>(path: string): Promise<T> {
     return this.client.request<T>('DELETE', path);
   }
 }
@@ -194,49 +194,49 @@ export class CoursesClient extends BaseClient {
     search?: string;
     category?: string;
   }): Promise<ApiResponse<Course[]>> {
-    return this.get<ApiResponse<Course[]>>('/courses', params as Record<string, string>);
+    return this._get<ApiResponse<Course[]>>('/courses', params as Record<string, string>);
   }
 
   /**
    * Get course by ID
    */
   async get(courseId: string): Promise<Course> {
-    return this.get<Course>(`/courses/${courseId}`);
+    return this._get<Course>(`/courses/${courseId}`);
   }
 
   /**
    * Create course
    */
   async create(data: Partial<Course>): Promise<Course> {
-    return this.post<Course>('/courses', data);
+    return this._post<Course>('/courses', data);
   }
 
   /**
    * Update course
    */
   async update(courseId: string, data: Partial<Course>): Promise<Course> {
-    return this.put<Course>(`/courses/${courseId}`, data);
+    return this._put<Course>(`/courses/${courseId}`, data);
   }
 
   /**
    * Delete course
    */
   async delete(courseId: string): Promise<void> {
-    return this.delete<void>(`/courses/${courseId}`);
+    return this._delete<void>(`/courses/${courseId}`);
   }
 
   /**
    * Get course modules
    */
   async getModules(courseId: string): Promise<unknown> {
-    return this.get<unknown>(`/courses/${courseId}/modules`);
+    return this._get<unknown>(`/courses/${courseId}/modules`);
   }
 
   /**
    * Publish course
    */
   async publish(courseId: string): Promise<Course> {
-    return this.post<Course>(`/courses/${courseId}/publish`);
+    return this._post<Course>(`/courses/${courseId}/publish`);
   }
 }
 
@@ -254,35 +254,35 @@ export class UsersClient extends BaseClient {
     role?: string;
     search?: string;
   }): Promise<ApiResponse<User[]>> {
-    return this.get<ApiResponse<User[]>>('/users', params as Record<string, string>);
+    return this._get<ApiResponse<User[]>>('/users', params as Record<string, string>);
   }
 
   /**
    * Get user by ID
    */
   async get(userId: string): Promise<User> {
-    return this.get<User>(`/users/${userId}`);
+    return this._get<User>(`/users/${userId}`);
   }
 
   /**
    * Create user
    */
   async create(data: Partial<User>): Promise<User> {
-    return this.post<User>('/users', data);
+    return this._post<User>('/users', data);
   }
 
   /**
    * Update user
    */
   async update(userId: string, data: Partial<User>): Promise<User> {
-    return this.put<User>(`/users/${userId}`, data);
+    return this._put<User>(`/users/${userId}`, data);
   }
 
   /**
    * Delete user
    */
   async delete(userId: string): Promise<void> {
-    return this.delete<void>(`/users/${userId}`);
+    return this._delete<void>(`/users/${userId}`);
   }
 
   /**
@@ -318,28 +318,28 @@ export class EnrollmentsClient extends BaseClient {
     userId?: string;
     status?: string;
   }): Promise<ApiResponse<Enrollment[]>> {
-    return this.get<ApiResponse<Enrollment[]>>('/enrollments', params as Record<string, string>);
+    return this._get<ApiResponse<Enrollment[]>>('/enrollments', params as Record<string, string>);
   }
 
   /**
    * Enroll user in course
    */
   async enroll(data: { userId: string; courseId: string }): Promise<Enrollment> {
-    return this.post<Enrollment>('/enrollments', data);
+    return this._post<Enrollment>('/enrollments', data);
   }
 
   /**
    * Unenroll user
    */
   async unenroll(enrollmentId: string): Promise<void> {
-    return this.delete<void>(`/enrollments/${enrollmentId}`);
+    return this._delete<void>(`/enrollments/${enrollmentId}`);
   }
 
   /**
    * Bulk enroll
    */
   async bulkEnroll(courseId: string, userIds: string[]): Promise<{ enrolled: number }> {
-    return this.post<{ enrolled: number }>('/enrollments/bulk', { courseId, userIds });
+    return this._post<{ enrolled: number }>('/enrollments/bulk', { courseId, userIds });
   }
 }
 
@@ -355,35 +355,35 @@ export class AssignmentsClient extends BaseClient {
     courseId?: string;
     status?: string;
   }): Promise<ApiResponse<Assignment[]>> {
-    return this.get<ApiResponse<Assignment[]>>('/assignments', params as Record<string, string>);
+    return this._get<ApiResponse<Assignment[]>>('/assignments', params as Record<string, string>);
   }
 
   /**
    * Get assignment
    */
   async get(assignmentId: string): Promise<Assignment> {
-    return this.get<Assignment>(`/assignments/${assignmentId}`);
+    return this._get<Assignment>(`/assignments/${assignmentId}`);
   }
 
   /**
    * Create assignment
    */
   async create(data: Partial<Assignment>): Promise<Assignment> {
-    return this.post<Assignment>('/assignments', data);
+    return this._post<Assignment>('/assignments', data);
   }
 
   /**
    * Submit assignment
    */
   async submit(assignmentId: string, submission: { content: string; attachments?: File[] }): Promise<void> {
-    return this.post<void>(`/assignments/${assignmentId}/submit`, submission);
+    return this._post<void>(`/assignments/${assignmentId}/submit`, submission);
   }
 
   /**
    * Grade submission
    */
   async grade(submissionId: string, grade: { score: number; feedback?: string }): Promise<void> {
-    return this.put<void>(`/assignments/submissions/${submissionId}/grade`, grade);
+    return this._put<void>(`/assignments/submissions/${submissionId}/grade`, grade);
   }
 }
 
@@ -396,28 +396,28 @@ export class QuizzesClient extends BaseClient {
    * List quizzes
    */
   async list(params?: { courseId?: string }): Promise<ApiResponse<Quiz[]>> {
-    return this.get<ApiResponse<Quiz[]>>('/quizzes', params as Record<string, string>);
+    return this._get<ApiResponse<Quiz[]>>('/quizzes', params as Record<string, string>);
   }
 
   /**
    * Get quiz
    */
   async get(quizId: string): Promise<Quiz> {
-    return this.get<Quiz>(`/quizzes/${quizId}`);
+    return this._get<Quiz>(`/quizzes/${quizId}`);
   }
 
   /**
    * Start quiz attempt
    */
   async startAttempt(quizId: string): Promise<{ attemptId: string; questions: unknown[] }> {
-    return this.post<{ attemptId: string; questions: unknown[] }>(`/quizzes/${quizId}/start`);
+    return this._post<{ attemptId: string; questions: unknown[] }>(`/quizzes/${quizId}/start`);
   }
 
   /**
    * Submit quiz answers
    */
   async submitAnswers(attemptId: string, answers: Record<string, unknown>): Promise<{ score: number; correct: number }> {
-    return this.post<{ score: number; correct: number }>(`/quizzes/attempts/${attemptId}/submit`, { answers });
+    return this._post<{ score: number; correct: number }>(`/quizzes/attempts/${attemptId}/submit`, { answers });
   }
 }
 
@@ -430,14 +430,14 @@ export class GradesClient extends BaseClient {
    * Get gradebook for course
    */
   async getGradebook(courseId: string): Promise<Grade[]> {
-    return this.get<Grade[]>(`/courses/${courseId}/grades`);
+    return this._get<Grade[]>(`/courses/${courseId}/grades`);
   }
 
   /**
    * Update grade
    */
   async update(userId: string, courseId: string, grade: { score: number; letter?: string }): Promise<Grade> {
-    return this.put<Grade>(`/grades/${userId}/${courseId}`, grade);
+    return this._put<Grade>(`/grades/${userId}/${courseId}`, grade);
   }
 
   /**
@@ -463,21 +463,21 @@ export class AttendanceClient extends BaseClient {
    * Get attendance records
    */
   async list(params?: { courseId?: string; date?: string }): Promise<ApiResponse<AttendanceRecord[]>> {
-    return this.get<ApiResponse<AttendanceRecord[]>>('/attendance', params as Record<string, string>);
+    return this._get<ApiResponse<AttendanceRecord[]>>('/attendance', params as Record<string, string>);
   }
 
   /**
    * Mark attendance
    */
   async mark(data: { userId: string; courseId: string; status: string; date: string }): Promise<AttendanceRecord> {
-    return this.post<AttendanceRecord>('/attendance', data);
+    return this._post<AttendanceRecord>('/attendance', data);
   }
 
   /**
    * Generate QR code for session
    */
   async generateQR(courseId: string): Promise<{ qrCode: string; expiresAt: string }> {
-    return this.post<{ qrCode: string; expiresAt: string }>(`/attendance/qr`, { courseId });
+    return this._post<{ qrCode: string; expiresAt: string }>(`/attendance/qr`, { courseId });
   }
 }
 
@@ -490,21 +490,21 @@ export class AnnouncementsClient extends BaseClient {
    * List announcements
    */
   async list(params?: { courseId?: string }): Promise<ApiResponse<Announcement[]>> {
-    return this.get<ApiResponse<Announcement[]>>('/announcements', params as Record<string, string>);
+    return this._get<ApiResponse<Announcement[]>>('/announcements', params as Record<string, string>);
   }
 
   /**
    * Create announcement
    */
   async create(data: Partial<Announcement>): Promise<Announcement> {
-    return this.post<Announcement>('/announcements', data);
+    return this._post<Announcement>('/announcements', data);
   }
 
   /**
    * Delete announcement
    */
   async delete(announcementId: string): Promise<void> {
-    return this.delete<void>(`/announcements/${announcementId}`);
+    return this._delete<void>(`/announcements/${announcementId}`);
   }
 }
 
@@ -517,21 +517,21 @@ export class AnalyticsClient extends BaseClient {
    * Get learner dashboard
    */
   async getDashboard(userId: string): Promise<unknown> {
-    return this.get<unknown>(`/analytics/dashboard/${userId}`);
+    return this._get<unknown>(`/analytics/dashboard/${userId}`);
   }
 
   /**
    * Get course analytics
    */
   async getCourseAnalytics(courseId: string): Promise<unknown> {
-    return this.get<unknown>(`/analytics/courses/${courseId}`);
+    return this._get<unknown>(`/analytics/courses/${courseId}`);
   }
 
   /**
    * Get cohort comparison
    */
   async getCohortComparison(cohortId: string): Promise<unknown> {
-    return this.get<unknown>(`/analytics/cohorts/${cohortId}`);
+    return this._get<unknown>(`/analytics/cohorts/${cohortId}`);
   }
 }
 
