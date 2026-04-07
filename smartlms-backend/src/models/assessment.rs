@@ -141,7 +141,7 @@ pub struct Grade {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GradeCategory {
     pub id: uuid::Uuid,
-    pub course_id: uuid::Uuid>,
+    pub course_id: uuid::Uuid,
     pub name: String,
     pub weight: f32,
     pub drop_lowest: Option<i32>,
