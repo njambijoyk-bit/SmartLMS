@@ -2,6 +2,7 @@
 pub mod user;
 pub mod institution;
 pub mod course;
+pub mod assessment;
 
 pub use user::*;
 pub use institution::*;
