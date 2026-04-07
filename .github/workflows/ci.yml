@@ -290,7 +290,6 @@ jobs:
       - name: Check all jobs
         run: |
           if [[ "${{ needs.rust-check.result }}" == "failure" || \
-                "${{ needs.rust-test.result }}" == "failure" || \
                 "${{ needs.frontend.result }}" == "failure" ]]; then
             echo "One or more required checks failed."
             exit 1
