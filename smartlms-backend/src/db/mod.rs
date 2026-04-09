@@ -4,6 +4,7 @@ pub mod assessment;
 pub mod attendance;
 pub mod backup;
 pub mod course;
+pub mod course_group;
 pub mod institution;
 pub mod live;
 pub mod user;
