@@ -2,6 +2,7 @@
 pub mod abac;
 pub mod assessments;
 pub mod auth;
+pub mod communication;
 pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
@@ -16,6 +17,7 @@ pub fn create_api_router() -> axum::Router {
         .nest("/courses", courses::courses_router())
         .nest("/course-groups", course_groups::course_groups_router())
         .nest("/assessments", assessments::assessments_router())
+        .nest("/communication", communication::communication_router())
         .nest("/live", enrollments::enrollments_router())
         .nest("/abac", abac::abac_router())
     // .nest("/users", users::users_router())

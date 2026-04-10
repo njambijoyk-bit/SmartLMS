@@ -1,1 +1,15 @@
-Nothing needs to be added to .gitignore since only a markdown file (IMPLEMENTATION_SUMMARY.md) was added, which is a source/config file and should not be ignored.
+```
+# Compiled and build artifacts
+*.o
+*.obj
+*.out
+# Dependencies
+target/
+# Logs and temp files
+*.log
+*.tmp
+# Environment
+.env
+.env.local
+.env.*
+```
