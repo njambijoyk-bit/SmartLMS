@@ -1,24 +1,19 @@
 ```
-# Dependencies
-target/
+# Database migrations backup
+*.sql.bak
+*.backup
 
-# Logs and temp files
-*.log
-
-# Environment
-.env
+# Environment specific
 .env.local
-*.env.*
 
-# Editors
+# IDE files
 .vscode/
 .idea/
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
+# Logs
+*.log
 
-# Rust-specific
-Cargo.lock
+# Temporary files
+*.tmp
+*.temp
 ```
