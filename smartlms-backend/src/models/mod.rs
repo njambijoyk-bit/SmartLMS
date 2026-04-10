@@ -3,6 +3,7 @@ pub mod abac;
 pub mod assessment;
 pub mod attendance;
 pub mod backup;
+pub mod communication;
 pub mod course;
 pub mod course_group;
 pub mod institution;
@@ -13,6 +14,7 @@ pub use abac::*;
 pub use assessment::*;
 pub use attendance::*;
 pub use backup::*;
+pub use communication::*;
 pub use course::*;
 pub use course_group::*;
 pub use institution::{
