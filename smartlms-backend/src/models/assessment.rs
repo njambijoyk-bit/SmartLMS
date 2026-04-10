@@ -39,6 +39,18 @@ pub struct QuestionOption {
     pub is_correct: bool,
 }
 
+/// Code execution result (for auto-grading code questions)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeExecutionResult {
+    pub passed: bool,
+    pub output: String,
+    pub error: Option<String>,
+    pub execution_time_ms: i32,
+    pub memory_used_kb: i32,
+    pub test_cases_passed: i32,
+    pub total_test_cases: i32,
+}
+
 /// Question bank
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuestionBank {
@@ -60,17 +72,27 @@ pub struct Assessment {
     pub description: Option<String>,
     pub assessment_type: AssessmentType,
     pub course_id: uuid::Uuid,
+    pub course_group_id: Option<uuid::Uuid>, // For lecturer-specific groups
     pub module_id: Option<uuid::Uuid>,
+    pub created_by: uuid::Uuid, // Lecturer who created it
     pub time_limit_minutes: Option<i32>,
     pub passing_score: i32,
     pub shuffle_questions: bool,
     pub shuffle_options: bool,
     pub show_results: bool,
+    pub show_results_immediately: bool, // New: control when results shown
     pub allow_retries: bool,
     pub max_retries: Option<i32>,
+    pub require_lockdown_browser: bool, // New: exam mode
+    pub allow_late_submission: bool, // New
+    pub late_penalty_percent: i32, // New: 0-100
     pub is_published: bool,
-    pub created_at: DateTime<Utc>,
+    pub status: String, // draft, published, archived
+    pub start_time: Option<DateTime<Utc>>, // New: availability window
     pub due_date: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>, // New: hard deadline
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Assessment types
@@ -105,6 +127,11 @@ pub struct Attempt {
     pub percent_score: Option<f32>,
     pub passed: Option<bool>,
     pub time_spent_seconds: i32,
+    pub status: String, // in_progress, submitted, graded, expired
+    pub is_late: bool,
+    pub lockdown_session_id: Option<String>, // Track browser session for exam mode
+    pub ip_address: Option<String>, // For proctoring/audit
+    pub attempt_number: i32, // For retry tracking
 }
 
 /// Student answer
@@ -113,10 +140,17 @@ pub struct Answer {
     pub id: uuid::Uuid,
     pub attempt_id: uuid::Uuid,
     pub question_id: uuid::Uuid,
-    pub answer_text: Option<String>,
-    pub selected_options: Vec<uuid::Uuid>,
+    pub answer_text: Option<String>, // For essay/short answer
+    pub selected_options: Vec<uuid::Uuid>, // For MCQ
+    pub code_content: Option<String>, // For code questions
+    pub file_url: Option<String>, // For file uploads
     pub is_correct: Option<bool>,
     pub points_earned: Option<i32>,
+    pub auto_grade_score: Option<f32>, // Auto-graded portion
+    pub manual_grade_score: Option<f32>, // Manually graded portion
+    pub feedback: Option<String>, // Instructor feedback
+    pub graded_by: Option<uuid::Uuid>,
+    pub graded_at: Option<DateTime<Utc>>,
 }
 
 /// Gradebook entry
@@ -182,15 +216,22 @@ pub struct CreateAssessmentRequest {
     pub description: Option<String>,
     pub assessment_type: AssessmentType,
     pub course_id: uuid::Uuid,
+    pub course_group_id: Option<uuid::Uuid>, // For lecturer-specific groups
     pub module_id: Option<uuid::Uuid>,
     pub time_limit_minutes: Option<i32>,
     pub passing_score: Option<i32>,
     pub shuffle_questions: Option<bool>,
     pub shuffle_options: Option<bool>,
     pub show_results: Option<bool>,
+    pub show_results_immediately: Option<bool>,
     pub allow_retries: Option<bool>,
     pub max_retries: Option<i32>,
+    pub require_lockdown_browser: Option<bool>,
+    pub allow_late_submission: Option<bool>,
+    pub late_penalty_percent: Option<i32>,
+    pub start_time: Option<DateTime<Utc>>,
     pub due_date: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -198,6 +239,7 @@ pub struct SubmitAnswerRequest {
     pub question_id: uuid::Uuid,
     pub answer_text: Option<String>,
     pub selected_options: Option<Vec<uuid::Uuid>>,
+    pub code_content: Option<String>, // For code questions
 }
 
 #[derive(Debug, Deserialize)]
@@ -205,6 +247,22 @@ pub struct GradeSubmissionRequest {
     pub score: f32,
     pub max_score: f32,
     pub feedback: Option<String>,
+    pub auto_grade_score: Option<f32>,
+    pub manual_grade_score: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubmitCodeRequest {
+    pub question_id: uuid::Uuid,
+    pub code: String,
+    pub language: String, // python, java, cpp, etc.
+}
+
+#[derive(Debug, Serialize)]
+pub struct CodeSubmissionResponse {
+    pub result: CodeExecutionResult,
+    pub score: f32,
+    pub feedback: String,
 }
 
 #[derive(Debug, Serialize)]
