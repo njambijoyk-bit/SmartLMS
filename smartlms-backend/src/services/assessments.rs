@@ -364,3 +364,63 @@ fn get_letter_grade(percent: f32) -> String {
     }
     .to_string()
 }
+
+// Additional Assessment CRUD operations
+pub async fn update_assessment(
+    pool: &PgPool,
+    assessment_id: Uuid,
+    req: &UpdateAssessmentRequest,
+) -> Result<Assessment, String> {
+    assessment_db::update_assessment(pool, assessment_id, req)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_assessment(pool: &PgPool, assessment_id: Uuid) -> Result<(), String> {
+    assessment_db::delete_assessment(pool, assessment_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_assessments(
+    pool: &PgPool,
+    course_id: Option<Uuid>,
+    course_group_id: Option<Uuid>,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Assessment>, i64), String> {
+    assessment_db::list_assessments(pool, course_id, course_group_id, page, per_page)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn get_user_attempts(
+    pool: &PgPool,
+    user_id: Uuid,
+    assessment_id: Uuid,
+) -> Result<Vec<Attempt>, String> {
+    assessment_db::get_user_attempts(pool, user_id, assessment_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn add_question_to_assessment(
+    pool: &PgPool,
+    assessment_id: Uuid,
+    question_id: Uuid,
+    points: i32,
+) -> Result<AssessmentQuestion, String> {
+    assessment_db::add_question_to_assessment(pool, assessment_id, question_id, points)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn remove_question_from_assessment(
+    pool: &PgPool,
+    assessment_id: Uuid,
+    question_id: Uuid,
+) -> Result<(), String> {
+    assessment_db::remove_question_from_assessment(pool, assessment_id, question_id)
+        .await
+        .map_err(|e| e.to_string())
+}

@@ -516,3 +516,254 @@ pub async fn create_grade(pool: &PgPool, grade: &Grade) -> Result<Grade, sqlx::E
 
     Ok(grade.clone())
 }
+
+// Additional Assessment CRUD operations
+pub async fn update_assessment(
+    pool: &PgPool,
+    id: Uuid,
+    req: &UpdateAssessmentRequest,
+) -> Result<Assessment, sqlx::Error> {
+    let now = chrono::Utc::now();
+
+    sqlx::query!(
+        "UPDATE assessments SET 
+         title = COALESCE($1, title),
+         description = COALESCE($2, description),
+         time_limit_minutes = COALESCE($3, time_limit_minutes),
+         passing_score = COALESCE($4, passing_score),
+         shuffle_questions = COALESCE($5, shuffle_questions),
+         shuffle_options = COALESCE($6, shuffle_options),
+         show_results = COALESCE($7, show_results),
+         allow_retries = COALESCE($8, allow_retries),
+         max_retries = COALESCE($9, max_retries),
+         due_date = COALESCE($10, due_date),
+         updated_at = $11
+         WHERE id = $12",
+        req.title,
+        req.description,
+        req.time_limit_minutes,
+        req.passing_score,
+        req.shuffle_questions,
+        req.shuffle_options,
+        req.show_results,
+        req.allow_retries,
+        req.max_retries,
+        req.due_date,
+        now,
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    get_assessment(pool, id).await.map(|o| o.unwrap())
+}
+
+pub async fn delete_assessment(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM assessments WHERE id = $1", id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn list_assessments(
+    pool: &PgPool,
+    course_id: Option<Uuid>,
+    course_group_id: Option<Uuid>,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Assessment>, i64), sqlx::Error> {
+    let offset = (page - 1) * per_page;
+
+    let rows = if let Some(cid) = course_id {
+        if let Some(gid) = course_group_id {
+            sqlx::query!(
+                "SELECT id, title, description, assessment_type, course_id, module_id, 
+                        time_limit_minutes, passing_score, shuffle_questions, shuffle_options, 
+                        show_results, allow_retries, max_retries, is_published, created_at, due_date
+                 FROM assessments 
+                 WHERE course_id = $1 AND course_group_id = $2
+                 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+                cid, gid, per_page, offset
+            )
+            .fetch_all(pool)
+            .await?
+        } else {
+            sqlx::query!(
+                "SELECT id, title, description, assessment_type, course_id, module_id, 
+                        time_limit_minutes, passing_score, shuffle_questions, shuffle_options, 
+                        show_results, allow_retries, max_retries, is_published, created_at, due_date
+                 FROM assessments 
+                 WHERE course_id = $1
+                 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+                cid, per_page, offset
+            )
+            .fetch_all(pool)
+            .await?
+        }
+    } else {
+        sqlx::query!(
+            "SELECT id, title, description, assessment_type, course_id, module_id, 
+                    time_limit_minutes, passing_score, shuffle_questions, shuffle_options, 
+                    show_results, allow_retries, max_retries, is_published, created_at, due_date
+             FROM assessments 
+             ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            per_page, offset
+        )
+        .fetch_all(pool)
+        .await?
+    };
+
+    let assessments: Vec<Assessment> = rows
+        .into_iter()
+        .map(|r| Assessment {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            assessment_type: AssessmentType::Quiz,
+            course_id: r.course_id,
+            course_group_id: None,
+            module_id: r.module_id,
+            created_by: uuid::Uuid::nil(),
+            time_limit_minutes: r.time_limit_minutes,
+            passing_score: r.passing_score,
+            shuffle_questions: r.shuffle_questions,
+            shuffle_options: r.shuffle_options,
+            show_results: r.show_results,
+            show_results_immediately: true,
+            allow_retries: r.allow_retries,
+            max_retries: r.max_retries,
+            require_lockdown_browser: false,
+            allow_late_submission: false,
+            late_penalty_percent: 0,
+            is_published: r.is_published,
+            status: "draft".to_string(),
+            start_time: None,
+            due_date: r.due_date,
+            end_time: None,
+            created_at: r.created_at,
+            updated_at: r.created_at,
+        })
+        .collect();
+
+    Ok((assessments, assessments.len() as i64))
+}
+
+pub async fn get_user_attempts(
+    pool: &PgPool,
+    user_id: Uuid,
+    assessment_id: Uuid,
+) -> Result<Vec<Attempt>, sqlx::Error> {
+    let rows = sqlx::query!(
+        "SELECT id, assessment_id, user_id, started_at, submitted_at, score, percent_score, 
+                passed, time_spent_seconds
+         FROM attempts 
+         WHERE user_id = $1 AND assessment_id = $2
+         ORDER BY started_at DESC",
+        user_id,
+        assessment_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| Attempt {
+            id: r.id,
+            assessment_id: r.assessment_id,
+            user_id: r.user_id,
+            started_at: r.started_at,
+            submitted_at: r.submitted_at,
+            score: r.score,
+            percent_score: r.percent_score.map(|v| v as f32),
+            passed: r.passed,
+            time_spent_seconds: r.time_spent_seconds,
+            status: "submitted".to_string(),
+            is_late: false,
+            lockdown_session_id: None,
+            ip_address: None,
+            attempt_number: 0,
+        })
+        .collect())
+}
+
+pub async fn add_question_to_assessment(
+    pool: &PgPool,
+    assessment_id: Uuid,
+    question_id: Uuid,
+    points: i32,
+) -> Result<AssessmentQuestion, sqlx::Error> {
+    let id = Uuid::new_v4();
+
+    // Get max order
+    let max_order = sqlx::query!("SELECT COALESCE(MAX(order_index), -1) as max_order FROM assessment_questions WHERE assessment_id = $1", assessment_id)
+        .fetch_one(pool)
+        .await?;
+
+    let order = max_order.max_order + 1;
+
+    sqlx::query!(
+        "INSERT INTO assessment_questions (id, assessment_id, question_id, order_index, points)
+         VALUES ($1, $2, $3, $4, $5)",
+        id, assessment_id, question_id, order, points
+    )
+    .execute(pool)
+    .await?;
+
+    // Fetch the question details
+    let q = sqlx::query!(
+        "SELECT id, bank_id, question_text, question_type, correct_answer, explanation, points as q_points, created_at
+         FROM questions WHERE id = $1",
+        question_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(AssessmentQuestion {
+        id,
+        assessment_id,
+        question_id,
+        question: Question {
+            id: q.id,
+            bank_id: q.bank_id,
+            question_text: q.question_text,
+            question_type: QuestionType::MultipleChoice,
+            options: vec![],
+            correct_answer: q.correct_answer,
+            explanation: q.explanation,
+            points: q.q_points,
+            difficulty: "medium".to_string(),
+            tags: vec![],
+            created_at: q.created_at,
+        },
+        order,
+        points,
+    })
+}
+
+pub async fn remove_question_from_assessment(
+    pool: &PgPool,
+    assessment_id: Uuid,
+    question_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM assessment_questions WHERE assessment_id = $1 AND question_id = $2",
+        assessment_id, question_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAssessmentRequest {
+    pub title: Option<String>,
+    pub description: Option<Option<String>>,
+    pub time_limit_minutes: Option<Option<i32>>,
+    pub passing_score: Option<i32>,
+    pub shuffle_questions: Option<bool>,
+    pub shuffle_options: Option<bool>,
+    pub show_results: Option<bool>,
+    pub allow_retries: Option<bool>,
+    pub max_retries: Option<Option<i32>>,
+    pub due_date: Option<Option<chrono::DateTime<chrono::Utc>>>,
+}

@@ -6,7 +6,7 @@ use axum::{
     extract::{Extension, Json, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use serde::Deserialize;
@@ -14,7 +14,16 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct ListAssessmentsQuery {
     pub course_id: Option<uuid::Uuid>,
+    pub course_group_id: Option<uuid::Uuid>,
     pub assessment_type: Option<AssessmentType>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddQuestionToAssessmentRequest {
+    pub question_id: uuid::Uuid,
+    pub points: i32,
 }
 
 /// List question banks
@@ -50,13 +59,25 @@ pub async fn create_question(
     Ok(Json(question))
 }
 
-/// List assessments
+/// List assessments with filtering by course and group
 pub async fn list_assessments(
     Extension(ctx): Extension<InstitutionCtx>,
-    Query(_query): Query<ListAssessmentsQuery>,
+    Query(query): Query<ListAssessmentsQuery>,
 ) -> Result<Json<Vec<Assessment>>, (StatusCode, String)> {
-    // Simplified - return empty for now
-    Ok(Json(vec![]))
+    let page = query.page.unwrap_or(1);
+    let per_page = query.per_page.unwrap_or(20);
+    
+    let (assessments, _) = assessment_service::list_assessments(
+        &ctx.db_pool,
+        query.course_id,
+        query.course_group_id,
+        page,
+        per_page,
+    )
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    
+    Ok(Json(assessments))
 }
 
 /// Get assessment detail
@@ -81,6 +102,29 @@ pub async fn create_assessment(
     Ok(Json(assessment))
 }
 
+/// Update assessment
+pub async fn update_assessment(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Path(assessment_id): Path<uuid::Uuid>,
+    Json(req): Json<UpdateAssessmentRequest>,
+) -> Result<Json<Assessment>, (StatusCode, String)> {
+    let assessment = assessment_service::update_assessment(&ctx.db_pool, assessment_id, &req)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(assessment))
+}
+
+/// Delete assessment
+pub async fn delete_assessment(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Path(assessment_id): Path<uuid::Uuid>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    assessment_service::delete_assessment(&ctx.db_pool, assessment_id)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// Publish assessment
 pub async fn publish_assessment(
     Extension(ctx): Extension<InstitutionCtx>,
@@ -90,6 +134,34 @@ pub async fn publish_assessment(
         .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(assessment))
+}
+
+/// Add question to assessment
+pub async fn add_question_to_assessment(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Path(assessment_id): Path<uuid::Uuid>,
+    Json(req): Json<AddQuestionToAssessmentRequest>,
+) -> Result<Json<AssessmentQuestion>, (StatusCode, String)> {
+    let aq = assessment_service::add_question_to_assessment(
+        &ctx.db_pool,
+        assessment_id,
+        req.question_id,
+        req.points,
+    )
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(aq))
+}
+
+/// Remove question from assessment
+pub async fn remove_question_from_assessment(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Path((assessment_id, question_id)): Path<(uuid::Uuid, uuid::Uuid)>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    assessment_service::remove_question_from_assessment(&ctx.db_pool, assessment_id, question_id)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Start attempt
@@ -124,6 +196,17 @@ pub async fn submit_attempt(
         .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(result))
+}
+
+/// Get user attempts for an assessment
+pub async fn get_user_attempts(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Path(assessment_id): Path<uuid::Uuid>,
+) -> Result<Json<Vec<Attempt>>, (StatusCode, String)> {
+    let attempts = assessment_service::get_user_attempts(&ctx.db_pool, ctx.id, assessment_id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    Ok(Json(attempts))
 }
 
 /// Get gradebook
@@ -181,11 +264,16 @@ pub fn assessments_router() -> Router {
         .route("/", get(list_assessments))
         .route("/", post(create_assessment))
         .route("/:id", get(get_assessment))
+        .route("/:id", put(update_assessment))
+        .route("/:id", delete(delete_assessment))
         .route("/:id/publish", post(publish_assessment))
+        .route("/:id/questions", post(add_question_to_assessment))
+        .route("/:id/questions/:question_id", delete(remove_question_from_assessment))
         // Attempts
         .route("/:id/start", post(start_attempt))
         .route("/attempts/:attempt_id/answer", post(submit_answer))
         .route("/attempts/:attempt_id/submit", post(submit_attempt))
+        .route("/:id/attempts", get(get_user_attempts))
         // Gradebook
         .route("/gradebook/:course_id", get(get_gradebook))
         .route("/gradebook/:course_id", post(create_grade))
