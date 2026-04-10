@@ -1,0 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #E8F4F6;
+  --color-brand-100: #C5E4E9;
+  --color-brand-200: #8DC9D3;
+  --color-brand-300: #4DA9B8;
+  --color-brand-400: #1A8A9C;
+  --color-brand-500: #0D5E6D;
+  --color-brand-600: #0A4D5A;
+  --color-brand-700: #073C47;
+  --color-brand-800: #052B33;
+  --color-brand-900: #031A20;
+
+  --color-accent-50: #FEF0E8;
+  --color-accent-100: #FCD5BE;
+  --color-accent-200: #F5A878;
+  --color-accent-300: #E07D3E;
+  --color-accent-400: #C75C2B;
+  --color-accent-500: #A84A22;
+  --color-accent-600: #8A3C1B;
+  --color-accent-700: #6B2E15;
+
+  --color-gold-50: #FDF8EB;
+  --color-gold-100: #F9EDCD;
+  --color-gold-200: #F0D88F;
+  --color-gold-300: #E5C05A;
+  --color-gold-400: #D4A84B;
+  --color-gold-500: #B88D2F;
+
+  --color-sand-50: #FDFCFA;
+  --color-sand-100: #F7F3EE;
+  --color-sand-200: #EDE6DB;
+  --color-sand-300: #DDD2C2;
+  --color-sand-400: #C4B49E;
+
+  --color-surface: #FDFCFA;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #F7F3EE;
+
+  --color-ink: #1A1D23;
+  --color-ink-secondary: #4A4E57;
+  --color-ink-tertiary: #7A7E87;
+  --color-ink-placeholder: #A8ABB2;
+  --color-ink-inverse: #FFFFFF;
+
+  --color-success: #1B8F5A;
+  --color-success-light: #E6F7EF;
+  --color-warning: #D4921A;
+  --color-warning-light: #FEF7E8;
+  --color-danger: #C43D3D;
+  --color-danger-light: #FDECEC;
+  --color-info: #2D7AB5;
+  --color-info-light: #E8F1FA;
+
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-sand-300);
+  border-radius: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: 2px;
+}
+
+.pattern-geo {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230D5E6D' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.border-pattern {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-brand-500) 0px,
+    var(--color-brand-500) 8px,
+    var(--color-accent-400) 8px,
+    var(--color-accent-400) 12px,
+    var(--color-gold-400) 12px,
+    var(--color-gold-400) 16px,
+    var(--color-accent-400) 16px,
+    var(--color-accent-400) 20px,
+    var(--color-brand-500) 20px,
+    var(--color-brand-500) 28px,
+    transparent 28px,
+    transparent 32px
+  );
+  height: 4px;
+}

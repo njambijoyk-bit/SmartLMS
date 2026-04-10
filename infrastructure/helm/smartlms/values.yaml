@@ -1,0 +1,117 @@
+apiVersion: v2
+name: smartlms
+description: SmartLMS - Smart Learning Management System
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: 12.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 17.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: nginx-ingress
+    version: 9.x.x
+    repository: https://kubernetes.github.io/ingress-nginx
+    condition: nginx-ingress.enabled
+
+values:
+  replicaCount: 3
+  
+  image:
+    repository: smartlms/api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+  
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+  
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: api.smartlms.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: smartlms-tls
+        hosts:
+          - api.smartlms.example.com
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  nodeSelector: {}
+  
+  tolerations: []
+  
+  affinity: {}
+  
+  postgresql:
+    enabled: true
+    auth:
+      username: smartlms
+      database: smartlms_master
+    primary:
+      persistence:
+        size: 20Gi
+  
+  redis:
+    enabled: true
+    architecture: standalone
+    auth:
+      enabled: false
+    persistence:
+      enabled: true
+      size: 8Gi
+  
+  config:
+    database-url: ""
+    redis-url: "redis://redis:6379"
+    jwt-secret: "change-me-in-production"
+    rust-log: "info"
