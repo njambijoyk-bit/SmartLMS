@@ -1,0 +1,29 @@
+# Grafana Datasource Configuration
+# Auto-provisioned datasources for SmartLMS monitoring
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      httpMethod: POST
+    version: 1
+
+  - name: SmartLMS Logs
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      queryTimeout: "60s"
+    version: 1
+    # Uncomment if Loki is available
+    # uid: smartlms-logs

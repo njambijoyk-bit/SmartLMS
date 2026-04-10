@@ -1,0 +1,66 @@
+# SmartLMS Prometheus Alert Rules
+# alerts.yml
+
+groups:
+  - name: smartlms_alerts
+    interval: 30s
+    rules:
+      # API is down
+      - alert: SmartLMSAPIDown
+        expr: up{job="smartlms-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SmartLMS API is down"
+          description: "The SmartLMS API has been down for more than 2 minutes"
+
+      # High error rate
+      - alert: SmartLMSHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on SmartLMS API"
+          description: "Error rate is {{ $value }}% over the last 5 minutes"
+
+      # High response time
+      - alert: SmartLMSHighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on SmartLMS API"
+          description: "P95 response time is {{ $value }}s"
+
+      # ML service down
+      - alert: SmartLMSMLDown
+        expr: up{job="smartlms-ml"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SmartLMS ML Service is down"
+          description: "The ML service has been down for more than 5 minutes"
+
+      # High memory usage
+      - alert: SmartLMSHighMemory
+        expr: (container_memory_usage_bytes{container="api"} / container_spec_memory_limit_bytes{container="api"}) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on API"
+          description: "Memory usage is above 90% of limit"
+
+      # Database connection issues
+      - alert: SmartLMSDatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "The PostgreSQL database is not responding"
