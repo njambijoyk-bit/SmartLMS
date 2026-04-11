@@ -6,6 +6,7 @@ pub mod auth;
 pub mod blockchain;
 pub mod code_sandbox;
 pub mod communication;
+pub mod compliance;
 pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
@@ -31,5 +32,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/upgrade", upgrade::upgrade_router())
         .nest("/code-sandbox", code_sandbox::code_sandbox_router())
         .nest("/ai", ai_assistant::ai_router())
+        .nest("/compliance", compliance::compliance_router())
     // .nest("/users", users::users_router())
 }
