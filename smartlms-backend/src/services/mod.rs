@@ -14,6 +14,7 @@ pub mod certificate;
 pub mod clearance;
 pub mod code_sandbox;
 pub mod communication;
+pub mod compliance;
 pub mod course_builder;
 pub mod courses;
 pub mod developer;
