@@ -1,76 +1,19 @@
 ```
 # Dependencies
-node_modules/
+target/
 
-# Build outputs
-dist/
-build/
-.next/
-.nuxt/
-public/build/
-
-# Logs
+# Logs and temp files
 *.log
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# IDE files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-*.tmp
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/modules/
-*.sublime-workspace
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Node.js
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-jspm_packages/
-typings/
-.flow-typed/
-.nyc_output
-coverage/
-lib-cov
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Compiled and build artifacts
+**/*.rs.bk
 ```

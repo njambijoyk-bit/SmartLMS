@@ -7,6 +7,7 @@ pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
 pub mod institutions;
+pub mod upgrade;
 pub mod users;
 
 /// Combine all routers into main API
@@ -20,5 +21,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/communication", communication::communication_router())
         .nest("/live", enrollments::enrollments_router())
         .nest("/abac", abac::abac_router())
+        .nest("/upgrade", upgrade::upgrade_router())
     // .nest("/users", users::users_router())
 }
