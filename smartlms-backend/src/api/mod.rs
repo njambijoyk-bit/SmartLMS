@@ -3,12 +3,15 @@ pub mod abac;
 pub mod ai_assistant;
 pub mod assessments;
 pub mod auth;
+pub mod blockchain;
 pub mod code_sandbox;
 pub mod communication;
 pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
 pub mod institutions;
+pub mod live;
+pub mod mobile;
 pub mod upgrade;
 pub mod users;
 
@@ -21,7 +24,9 @@ pub fn create_api_router() -> axum::Router {
         .nest("/course-groups", course_groups::course_groups_router())
         .nest("/assessments", assessments::assessments_router())
         .nest("/communication", communication::communication_router())
-        .nest("/live", enrollments::enrollments_router())
+        .nest("/live", live::live_router())
+        .nest("/mobile", mobile::mobile_router())
+        .nest("/blockchain", blockchain::blockchain_router())
         .nest("/abac", abac::abac_router())
         .nest("/upgrade", upgrade::upgrade_router())
         .nest("/code-sandbox", code_sandbox::code_sandbox_router())
