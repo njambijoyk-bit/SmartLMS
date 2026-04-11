@@ -89,4 +89,10 @@ build/
 # System files
 .DS_Store
 Thumbs.db
+coverage/
+htmlcov/
+.coverage
+
+# Original rules preserved
+*.log
 ```
