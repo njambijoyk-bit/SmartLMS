@@ -11,6 +11,7 @@ pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
 pub mod employer;
+pub mod gamification;
 pub mod institutions;
 pub mod library;
 pub mod live;
@@ -37,5 +38,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/compliance", compliance::compliance_router())
         .nest("/employer", employer::employer_router())
         .nest("/library", library::library_router())
+        .nest("/gamification", gamification::create_router())
     // .nest("/users", users::users_router())
 }
