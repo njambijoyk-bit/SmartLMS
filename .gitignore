@@ -1,7 +1,4 @@
 ```
-# Dependencies
 target/
-
-# Compiled and build artifacts
 **/*.rs.bk
 ```
