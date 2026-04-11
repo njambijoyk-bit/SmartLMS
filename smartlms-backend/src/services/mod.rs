@@ -1,6 +1,8 @@
 // Services module - business logic layer
 pub mod abac;
 pub mod academic;
+pub mod ai_learning;
+pub mod ai_learning_impl;
 pub mod ai_proctoring;
 pub mod analytics;
 pub mod assessments;
