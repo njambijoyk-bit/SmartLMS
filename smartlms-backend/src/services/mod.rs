@@ -10,6 +10,7 @@ pub mod automation;
 pub mod backup;
 pub mod certificate;
 pub mod clearance;
+pub mod code_sandbox;
 pub mod communication;
 pub mod course_builder;
 pub mod courses;
