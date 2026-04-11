@@ -10,7 +10,9 @@ pub mod compliance;
 pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
+pub mod employer;
 pub mod institutions;
+pub mod library;
 pub mod live;
 pub mod mobile;
 pub mod upgrade;
@@ -33,5 +35,7 @@ pub fn create_api_router() -> axum::Router {
         .nest("/code-sandbox", code_sandbox::code_sandbox_router())
         .nest("/ai", ai_assistant::ai_router())
         .nest("/compliance", compliance::compliance_router())
+        .nest("/employer", employer::employer_router())
+        .nest("/library", library::library_router())
     // .nest("/users", users::users_router())
 }
