@@ -1,19 +1,40 @@
 ```
 # Dependencies
+node_modules/
 target/
 
-# Logs and temp files
-*.log
-
-# Environment
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
 .env
 .env.local
-*.env.*
+.env.*
 
-# Editors
+# Logs
+*.log
+
+# Editor
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
 
-# Compiled and build artifacts
-**/*.rs.bk
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+Cargo.lock
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
 ```
