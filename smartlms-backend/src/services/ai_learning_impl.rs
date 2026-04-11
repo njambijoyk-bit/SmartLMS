@@ -4,6 +4,7 @@ use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde_json::json;
+use chrono::{DateTime, Utc};
 
 /// Production implementation of the AI Learning Service
 pub struct AiLearningServiceImpl {
