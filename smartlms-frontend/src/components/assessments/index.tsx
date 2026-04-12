@@ -601,17 +601,19 @@ export function AssessmentBuilder({ assessment, onSave, onCancel }: AssessmentBu
             <span className="text-sm text-ink-secondary">Allow late submissions</span>
           </div>
           {allowLateSubmission && (
-            <Slider
-              value={[latePenaltyPercent]}
-              onValueChange={v => setLatePenaltyPercent(v[0])}
-              min={0}
-              max={100}
-              step={5}
-              className="mt-3"
-            />
-            <p className="text-xs text-ink-tertiary mt-1">
-              {latePenaltyPercent}% deduction per late day
-            </p>
+            <div className="mt-3">
+              <Slider
+                value={[latePenaltyPercent]}
+                onValueChange={v => setLatePenaltyPercent(v[0])}
+                min={0}
+                max={100}
+                step={5}
+                className="mt-3"
+              />
+              <p className="text-xs text-ink-tertiary mt-1">
+                {latePenaltyPercent}% deduction per late day
+              </p>
+            </div>
           )}
         </div>
       </Card>

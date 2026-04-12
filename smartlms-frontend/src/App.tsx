@@ -41,6 +41,8 @@ import { RPLPage } from './pages/rpl/RPLPage';
 import { ProctoringPage } from './pages/proctoring/ProctoringPage';
 import DeveloperPage from './pages/developer';
 import AccessibilityPage from './pages/accessibility';
+import BlockchainPage from './pages/blockchain/BlockchainPage';
+import IoTPage from './pages/iot/IoTPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -100,6 +102,8 @@ function AppRoutes() {
         <Route path="/proctoring" element={<ProctoringPage />} />
         <Route path="/developer" element={<DeveloperPage />} />
         <Route path="/accessibility" element={<AccessibilityPage />} />
+        <Route path="/blockchain" element={<BlockchainPage />} />
+        <Route path="/iot" element={<IoTPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
