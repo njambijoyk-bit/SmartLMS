@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-
-// TODO: Add blockchainAPI to lib/api.ts when backend endpoints are finalized
-// import { blockchainAPI } from '../../lib/api';
+import { blockchainAPI } from '../../lib/api';
 
 interface BlockchainCertificate {
   id: string;
@@ -62,9 +60,8 @@ const BlockchainPage: React.FC = () => {
   const loadCertificates = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call when available
-      // const data = await blockchainAPI.getCertificates();
-      // setCertificates(data);
+      const data = await blockchainAPI.getCertificates();
+      setCertificates(data);
     } catch (error) {
       console.error('Failed to load certificates:', error);
     } finally {
@@ -76,11 +73,7 @@ const BlockchainPage: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // await blockchainAPI.mintCertificate({
-      //   certificate_id: certificateId,
-      //   network: selectedNetwork,
-      // });
+      await blockchainAPI.mintCertificate(certificateId, selectedNetwork);
       alert('Certificate minting initiated!');
       setShowMintModal(false);
       loadCertificates();
@@ -95,11 +88,10 @@ const BlockchainPage: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const result = await blockchainAPI.verifyCertificate({
-      //   certificate_hash: verificationQuery,
-      // });
-      // setVerificationResult(result);
+      const result = await blockchainAPI.verifyCertificate({
+        certificate_hash: verificationQuery,
+      });
+      setVerificationResult(result);
       setShowVerifyModal(true);
     } catch (error) {
       console.error('Failed to verify certificate:', error);
@@ -122,13 +114,13 @@ const BlockchainPage: React.FC = () => {
       case 'minted':
         return 'success' as const;
       case 'minting':
-        return 'warning' as const;
+        return 'info' as const;
       case 'failed':
         return 'danger' as const;
       case 'revoked':
-        return 'secondary' as const;
+        return 'default' as const;
       default:
-        return 'secondary' as const;
+        return 'default' as const;
     }
   };
 

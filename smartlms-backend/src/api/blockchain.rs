@@ -290,6 +290,8 @@ pub struct GasPrices {
 
 pub fn blockchain_router() -> Router {
     Router::new()
+        // Certificate listing
+        .route("/certificates", axum::routing::get(handle_list_certificates))
         // Certificate minting
         .route("/certificates/:certificate_id/mint", axum::routing::post(handle_mint_certificate))
         .route("/certificates/batch-mint", axum::routing::post(handle_batch_mint))
@@ -946,6 +948,28 @@ async fn handle_public_verification(
         blockchain_info: None,
         error: Some("Certificate not found".to_string()),
     }))
+}
+
+async fn handle_list_certificates(
+    State(pool): State<PgPool>,
+) -> Result<Json<Vec<NftCertificate>>, StatusCode> {
+    // Fetch all NFT certificates from database
+    let certificates = sqlx::query_as!(
+        NftCertificate,
+        r#"SELECT id, certificate_id, user_id, course_id, institution_id, 
+                  token_id, transaction_hash, contract_address, network as "network: _",
+                  mint_status as "mint_status: _", ipfs_hash, minted_at, created_at
+           FROM nft_certificates
+           ORDER BY created_at DESC"#
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| {
+        eprintln!("Failed to fetch certificates: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(certificates))
 }
 
 #[derive(Debug, Serialize)]
