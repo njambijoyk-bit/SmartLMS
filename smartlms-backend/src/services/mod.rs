@@ -1,4 +1,5 @@
-// Services module - business logic layer
+// Services module - Phase 16 & 17 Enhancements
+
 pub mod abac;
 pub mod academic;
 pub mod ai_learning;
@@ -19,6 +20,8 @@ pub mod compliance;
 pub mod course_builder;
 pub mod courses;
 pub mod developer;
+pub mod domain;
+pub mod edge_computing;
 pub mod employer;
 pub mod fee;
 pub mod gamification;
@@ -31,11 +34,10 @@ pub mod live;
 pub mod migration;
 pub mod ml;
 pub mod mqtt;
-pub mod edge_computing;
-pub mod predictive_maintenance;
 pub mod onboarding;
 pub mod peer_review;
 pub mod portfolio;
+pub mod predictive_maintenance;
 pub mod proctoring;
 pub mod rbac;
 pub mod research;
@@ -46,9 +48,17 @@ pub mod sso;
 pub mod timetable;
 pub mod upgrade;
 pub mod video;
+pub mod websocket;
 pub mod wellbeing;
 pub mod whitelabel;
-pub mod websocket;
 
-pub use auth::{change_password, login, register, request_password_reset, reset_password};
-pub use import_::service::{generate_csv_template, import_users_from_csv};
+// Phase 16 Enhancements
+pub mod vpat;
+pub mod soc2;
+pub mod migration_lms;
+
+// Phase 17 Enhancements  
+pub mod marketplace;
+pub mod oauth_server;
+pub mod sdk_generator;
+pub mod api_analytics;
