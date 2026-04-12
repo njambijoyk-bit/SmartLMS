@@ -153,6 +153,38 @@ pub struct CreateLessonRequest {
     pub is_free: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateModuleRequest {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub order: Option<i32>,
+    pub duration_minutes: Option<i32>,
+    pub is_preview: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateLessonRequest {
+    pub title: Option<String>,
+    pub lesson_type: Option<LessonType>,
+    pub content: Option<String>,
+    pub video_url: Option<String>,
+    pub duration_minutes: Option<i32>,
+    pub order: Option<i32>,
+    pub is_preview: Option<bool>,
+    pub is_free: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderItemsRequest {
+    pub items: Vec<ReorderItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderItem {
+    pub id: uuid::Uuid,
+    pub order: i32,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CourseListResponse {
     pub courses: Vec<Course>,
