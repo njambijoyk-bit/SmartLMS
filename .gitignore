@@ -1,7 +1,5 @@
-```
+```rust
 # Compiled and build artifacts
-*.pyc
-__pycache__/
 *.o
 *.obj
 *.exe
@@ -12,34 +10,91 @@ __pycache__/
 target/
 
 # Dependencies
-.venv/
-venv/
-node_modules/
-.mypy_cache/
-.pytest_cache/
-.coverage
-coverage/
-htmlcov/
+Cargo.lock
+**/vendor/
+**/deps/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
-*.swo
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS specific
-.DS_Store
-Thumbs.db
-
-# Rust specific
+# Rust-specific
+**/target/
 Cargo.lock
+**/Cargo.lock
+**/deps/
+**/vendor/
+**/examples/**/*.rs.bk
+**/*.d
+**/*.hi
+**/*.o
+**/*.pyc
+**/__pycache__/
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+**/*.out
+**/*.obj
+**/*.a
+**/*.lib
+**/*.pdb
+**/*.ilk
+**/*.exp
+**/*.ilk
+**/*.meta
+**/*.cache
+**/*.nib
+**/*.lproj/
+**/*.app/
+**/*.framework/
+**/*.bundle/
+**/*.so.*
+**/*.dylib.*
+**/*.dll.*
+**/*.exe.*
+**/*.out.*
+**/*.obj.*
+**/*.a.*
+**/*.lib.*
+**/*.pdb.*
+**/*.ilk.*
+**/*.exp.*
+**/*.meta.*
+**/*.cache.*
+**/*.nib.*
+**/*.lproj/*.*
+**/*.app/*.*
+**/*.framework/*.*
+**/*.bundle/*.*
+**/*.so.*.*
+**/*.dylib.*.*
+**/*.dll.*.*
+**/*.exe.*.*
+**/*.out.*.*
+**/*.obj.*.*
+**/*.a.*.*
+**/*.lib.*.*
+**/*.pdb.*.*
+**/*.ilk.*.*
+**/*.exp.*.*
+**/*.meta.*.*
+**/*.cache.*.*
+**/*.nib.*.*
+**/*.lproj/*.*.*
+**/*.app/*.*.*
+**/*.framework/*.*.*
+**/*.bundle/*.*.*
 ```

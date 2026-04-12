@@ -10,6 +10,7 @@ pub mod attendance;
 pub mod auth;
 pub mod automation;
 pub mod backup;
+pub mod blockchain;
 pub mod certificate;
 pub mod clearance;
 pub mod code_sandbox;
