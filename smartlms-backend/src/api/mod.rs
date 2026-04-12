@@ -23,6 +23,7 @@ pub mod mobile;
 pub mod upgrade;
 pub mod users;
 pub mod developer;
+pub mod websocket;
 
 /// Combine all routers into main API
 pub fn create_api_router() -> axum::Router {
@@ -57,6 +58,11 @@ pub fn create_api_router() -> axum::Router {
                 maintenance_manager: std::sync::Arc::new(tokio::sync::RwLock::new(
                     crate::services::predictive_maintenance::PredictiveMaintenanceManager::new()
                 )),
+            }
+        ))
+        .nest("/ws", websocket::create_websocket_routes(
+            websocket::WebSocketState {
+                manager: std::sync::Arc::new(crate::services::websocket::WebSocketManager::new()),
             }
         ))
     // .nest("/users", users::users_router())

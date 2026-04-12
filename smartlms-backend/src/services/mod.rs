@@ -47,6 +47,7 @@ pub mod upgrade;
 pub mod video;
 pub mod wellbeing;
 pub mod whitelabel;
+pub mod websocket;
 
 pub use auth::{change_password, login, register, request_password_reset, reset_password};
 pub use import_::service::{generate_csv_template, import_users_from_csv};
