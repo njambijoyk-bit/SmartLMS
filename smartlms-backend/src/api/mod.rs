@@ -15,6 +15,7 @@ pub mod enrollments;
 pub mod employer;
 pub mod gamification;
 pub mod institutions;
+pub mod iot;
 pub mod library;
 pub mod live;
 pub mod mobile;
@@ -45,5 +46,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/gamification", gamification::create_router())
         .nest("/automation", automation::create_router())
         .nest("/developer", developer::developer_router())
+        .nest("/iot", iot::iot_router())
     // .nest("/users", users::users_router())
 }
