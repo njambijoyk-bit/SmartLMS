@@ -1,53 +1,76 @@
 ```
-# Compiled and build artifacts
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
 # Dependencies
 target/
-**/target/
 
 # Logs and temp files
 *.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Rust-specific
-Cargo.lock
-**/Cargo.lock
-**/target/
-**/deps/
-**/*.rs.bk
-**/*.rlib
-**/*.so
-**/*.dylib
-**/*.dll
+# Editors
+.vscode/
+.idea/
 
-# Coverage
-coverage/
-htmlcov/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
 .coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+*.tmproj
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
-# Cache
-**/__pycache__/
-**/.mypy_cache/
-**/.pytest_cache/
-**/.ruff_cache/
-**/.cargo/
+# Rust
+Cargo.lock
+target/
+**/*.rs.bk
+$CARGO_HOME/
+.cargo/
+.rustup/
+
+# Database
+*.db
+*.db-journal
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 ```
