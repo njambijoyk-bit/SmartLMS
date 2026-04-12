@@ -10,8 +10,10 @@ pub mod institution;
 pub mod iot;
 pub mod live;
 pub mod user;
+pub mod parents_alumni;
 
 pub use communication::*;
 pub use institution::*;
 pub use iot::*;
 pub use user::*;
+pub use parents_alumni::*;
