@@ -16,6 +16,7 @@ pub mod employer;
 pub mod gamification;
 pub mod institutions;
 pub mod iot;
+pub mod iot_advanced;
 pub mod library;
 pub mod live;
 pub mod mobile;
@@ -47,5 +48,16 @@ pub fn create_api_router() -> axum::Router {
         .nest("/automation", automation::create_router())
         .nest("/developer", developer::developer_router())
         .nest("/iot", iot::iot_router())
+        .nest("/iot-advanced", iot_advanced::create_iot_advanced_routes(
+            iot_advanced::IotAdvancedState {
+                mqtt_client: None,
+                edge_manager: std::sync::Arc::new(tokio::sync::RwLock::new(
+                    crate::services::edge_computing::EdgeComputingManager::new()
+                )),
+                maintenance_manager: std::sync::Arc::new(tokio::sync::RwLock::new(
+                    crate::services::predictive_maintenance::PredictiveMaintenanceManager::new()
+                )),
+            }
+        ))
     // .nest("/users", users::users_router())
 }
