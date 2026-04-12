@@ -1,4 +1,49 @@
 ```
+# Migration backups
+migrations/*.sql.bak
+migrations/*.backup
+
+# Environment files
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+dist/
+build/
 target/
-**/*.rs.bk
+*.so
+*.dylib
+*.dll
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Testing
+.mypy_cache/
+.pytest_cache/
 ```
