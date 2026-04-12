@@ -2,6 +2,7 @@
 pub mod abac;
 pub mod ai_assistant;
 pub mod analytics;
+pub mod api_analytics;
 pub mod assessments;
 pub mod auth;
 pub mod automation;
@@ -19,10 +20,14 @@ pub mod iot;
 pub mod iot_advanced;
 pub mod library;
 pub mod live;
+pub mod marketplace;
 pub mod mobile;
+pub mod oauth;
+pub mod sdk;
 pub mod upgrade;
 pub mod users;
 pub mod developer;
+pub mod vpat;
 pub mod websocket;
 
 /// Combine all routers into main API
@@ -65,5 +70,11 @@ pub fn create_api_router() -> axum::Router {
                 manager: std::sync::Arc::new(crate::services::websocket::WebSocketManager::new()),
             }
         ))
+        // Phase 16 & 17 Enhancements
+        .nest("/vpat", vpat::vpat_router())
+        .nest("/oauth", oauth::oauth_router())
+        .nest("/marketplace", marketplace::marketplace_router())
+        .nest("/sdk", sdk::sdk_router())
+        .nest("/api-analytics", api_analytics::api_analytics_router())
     // .nest("/users", users::users_router())
 }
