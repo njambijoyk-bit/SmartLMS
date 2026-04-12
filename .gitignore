@@ -1,25 +1,45 @@
 ```
-# Dependencies
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 target/
-Cargo.lock
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
 
 # Logs and temp files
 *.log
 *.tmp
+*.swp
+*.swo
 
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# OS
+# OS specific
 .DS_Store
 Thumbs.db
 
-# Rust-specific
-**/*.rs.bk
+# Rust specific
+Cargo.lock
 ```
