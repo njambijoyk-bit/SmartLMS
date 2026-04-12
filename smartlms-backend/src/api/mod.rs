@@ -1,6 +1,7 @@
 // API module - HTTP route handlers
 pub mod abac;
 pub mod ai_assistant;
+pub mod analytics;
 pub mod assessments;
 pub mod auth;
 pub mod automation;
@@ -37,6 +38,7 @@ pub fn create_api_router() -> axum::Router {
         .nest("/upgrade", upgrade::upgrade_router())
         .nest("/code-sandbox", code_sandbox::code_sandbox_router())
         .nest("/ai", ai_assistant::ai_router())
+        .nest("/analytics", analytics::analytics_router())
         .nest("/compliance", compliance::compliance_router())
         .nest("/employer", employer::employer_router())
         .nest("/library", library::library_router())
