@@ -10,6 +10,7 @@ pub mod institution;
 pub mod iot;
 pub mod live;
 pub mod user;
+pub mod parents_alumni;
 
 pub use abac::*;
 pub use assessment::*;
@@ -24,3 +25,4 @@ pub use institution::{
 pub use iot::*;
 pub use live::*;
 pub use user::{LoginRequest, LoginResponse, RegisterRequest, User};
+pub use parents_alumni::*;

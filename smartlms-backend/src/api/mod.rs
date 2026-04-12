@@ -29,6 +29,7 @@ pub mod users;
 pub mod developer;
 pub mod vpat;
 pub mod websocket;
+pub mod parents_alumni;
 
 /// Combine all routers into main API
 pub fn create_api_router() -> axum::Router {
@@ -76,5 +77,9 @@ pub fn create_api_router() -> axum::Router {
         .nest("/marketplace", marketplace::marketplace_router())
         .nest("/sdk", sdk::sdk_router())
         .nest("/api-analytics", api_analytics::api_analytics_router())
+        // Module 18, 23, 24
+        .nest("/parents", parents_alumni::parents_router())
+        .nest("/id-cards", parents_alumni::id_cards_router())
+        .nest("/alumni", parents_alumni::alumni_router())
     // .nest("/users", users::users_router())
 }
