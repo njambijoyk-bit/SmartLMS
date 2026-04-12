@@ -111,3 +111,16 @@ export function DialogTitle({ children, className }: DialogTitleProps) {
     </h2>
   );
 }
+
+interface DialogFooterProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function DialogFooter({ children, className }: DialogFooterProps) {
+  return (
+    <div className={clsx('p-6 pt-4 border-t border-sand-200 flex justify-end gap-3', className)}>
+      {children}
+    </div>
+  );
+}
