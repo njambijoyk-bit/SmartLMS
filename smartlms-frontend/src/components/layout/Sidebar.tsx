@@ -5,7 +5,7 @@ import {
   Video, Bell, ChevronLeft, ChevronRight, Zap, Library, Award,
   UserCheck, Heart, Building2, MessageCircleMore, Users2, CheckSquare,
   FolderOpen, Target, Compass, FileStack, BookMarked, Briefcase,
-  FileCheck, ShieldCheck, Contact, ArrowLeftRight, Medal,
+  FileCheck, ShieldCheck, Contact, ArrowLeftRight, Medal, Code, Accessibility,
 } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -64,6 +64,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Proctoring', path: '/proctoring', icon: <ShieldCheck size={20} />, roles: ['admin', 'instructor'] },
   { label: 'Automation', path: '/automation', icon: <Zap size={20} />, roles: ['admin'] },
   { label: 'Institution', path: '/institution', icon: <Building2 size={20} />, roles: ['admin'] },
+  { label: 'Developer Platform', path: '/developer', icon: <Code size={20} />, roles: ['admin', 'instructor'] },
+  { label: 'Accessibility', path: '/accessibility', icon: <Accessibility size={20} />, roles: ['admin', 'instructor'] },
 
   // Utility
   { label: 'Notifications', path: '/notifications', icon: <Bell size={20} />, roles: ['admin', 'instructor', 'learner', 'parent', 'advisor', 'counsellor', 'alumni'], section: '' },

@@ -74,3 +74,6 @@ export interface StatData {
   trend?: 'up' | 'down' | 'flat';
   icon?: string;
 }
+
+// Export Phase 16 & 17 types
+export * from './developer';
