@@ -22,6 +22,7 @@ pub mod employer;
 pub mod fee;
 pub mod gamification;
 pub mod import_;
+pub mod iot;
 pub mod jwt;
 pub mod library;
 pub mod license;
