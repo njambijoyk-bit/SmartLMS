@@ -1,96 +1,17 @@
-```rust
-# Dependencies
-target/
-Cargo.lock
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Logs and temporary files
-*.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Coverage reports
-coverage/
-htmlcov/
-
-# Python specific (if any Python files exist in the project)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
-
-# Node.js specific (if any Node.js files exist in the project)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-dist/
-build/
-.nyc_output
-coverage/
-*.lcov
-*.log
-*.tmp
-*.temp
-
-# Rust specific
-**/*.rs.bk
 ```
-
-Wait, I need to reconsider. The current changes are only source files (.rs, .ts, .tsx), not build artifacts or dependencies. Let me check again:
-
-The modified files are:
-- smartlms-backend/src/api/blockchain.rs (Rust source)
-- smartlms-frontend/src/lib/api.ts (TypeScript source) 
-- smartlms-frontend/src/pages/blockchain/BlockchainPage.tsx (TSX source)
-
-These are all source code files, not build artifacts. However, I should include standard Rust project ignores since there's a Rust backend.
-
-```rust
-# Dependencies
+# Build artifacts
 target/
+
+# Dependencies
 Cargo.lock
+
+# Logs and temp files
+*.log
 
 # Environment
 .env
 .env.local
 *.env.*
-
-# Logs and temporary files
-*.log
-*.tmp
-*.swp
 
 # Editors
 .vscode/
@@ -99,7 +20,4 @@ Cargo.lock
 # OS generated files
 .DS_Store
 Thumbs.db
-
-# Rust specific
-**/*.rs.bk
 ```

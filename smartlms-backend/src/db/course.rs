@@ -535,3 +535,183 @@ pub async fn avg_progress(pool: &PgPool, course_id: Uuid) -> Result<f32, sqlx::E
 pub async fn avg_rating(pool: &PgPool, course_id: Uuid) -> Result<f32, sqlx::Error> {
     Ok(0.0) // Simplified
 }
+
+// Module update and delete operations
+pub async fn update_module(
+    pool: &PgPool,
+    module_id: Uuid,
+    req: &crate::models::course::UpdateModuleRequest,
+) -> Result<Module, sqlx::Error> {
+    use chrono::Utc;
+    let now = Utc::now();
+
+    sqlx::query!(
+        "UPDATE modules SET 
+            title = COALESCE($1, title),
+            description = COALESCE($2, description),
+            order_index = COALESCE($3, order_index),
+            duration_minutes = COALESCE($4, duration_minutes),
+            is_preview = COALESCE($5, is_preview),
+            updated_at = $6
+         WHERE id = $7",
+        req.title,
+        req.description,
+        req.order,
+        req.duration_minutes,
+        req.is_preview,
+        now,
+        module_id
+    )
+    .execute(pool)
+    .await?;
+
+    get_module_by_id(pool, module_id).await.map(|o| o.unwrap())
+}
+
+pub async fn delete_module(pool: &PgPool, module_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM modules WHERE id = $1", module_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// Lesson update and delete operations
+pub async fn update_lesson(
+    pool: &PgPool,
+    lesson_id: Uuid,
+    req: &crate::models::course::UpdateLessonRequest,
+) -> Result<Lesson, sqlx::Error> {
+    use chrono::Utc;
+    let now = Utc::now();
+
+    sqlx::query!(
+        "UPDATE lessons SET 
+            title = COALESCE($1, title),
+            lesson_type = COALESCE($2, lesson_type),
+            content = COALESCE($3, content),
+            video_url = COALESCE($4, video_url),
+            duration_minutes = COALESCE($5, duration_minutes),
+            order_index = COALESCE($6, order_index),
+            is_preview = COALESCE($7, is_preview),
+            is_free = COALESCE($8, is_free),
+            updated_at = $9
+         WHERE id = $10",
+        req.title,
+        req.lesson_type.as_ref().map(|t| format!("{:?}", t).to_lowercase()),
+        req.content,
+        req.video_url,
+        req.duration_minutes,
+        req.order,
+        req.is_preview,
+        req.is_free,
+        now,
+        lesson_id
+    )
+    .execute(pool)
+    .await?;
+
+    get_lesson_by_id(pool, lesson_id).await.map(|o| o.unwrap())
+}
+
+pub async fn delete_lesson(pool: &PgPool, lesson_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM lessons WHERE id = $1", lesson_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// Reorder modules
+pub async fn reorder_modules(
+    pool: &PgPool,
+    items: &[crate::models::course::ReorderItem],
+) -> Result<(), sqlx::Error> {
+    for item in items {
+        sqlx::query!(
+            "UPDATE modules SET order_index = $1 WHERE id = $2",
+            item.order,
+            item.id
+        )
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+// Reorder lessons
+pub async fn reorder_lessons(
+    pool: &PgPool,
+    items: &[crate::models::course::ReorderItem],
+) -> Result<(), sqlx::Error> {
+    for item in items {
+        sqlx::query!(
+            "UPDATE lessons SET order_index = $1 WHERE id = $2",
+            item.order,
+            item.id
+        )
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+// Delete course
+pub async fn delete_course(pool: &PgPool, course_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM courses WHERE id = $1", course_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// Get instructor's courses
+pub async fn get_instructor_courses(
+    pool: &PgPool,
+    instructor_id: Uuid,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Course>, i64), sqlx::Error> {
+    let offset = (page - 1) * per_page;
+
+    let rows = sqlx::query!(
+        "SELECT id, title, description, short_description, thumbnail_url, status,
+                category, tags, instructor_id, enrollment_count, completion_rate,
+                rating, language, difficulty, duration_hours, created_at, updated_at, published_at
+         FROM courses WHERE instructor_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        instructor_id,
+        per_page,
+        offset
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let courses: Vec<Course> = rows
+        .into_iter()
+        .map(|r| Course {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            short_description: r.short_description,
+            thumbnail_url: r.thumbnail_url,
+            status: match r.status.as_str() {
+                "published" => CourseStatus::Published,
+                "archived" => CourseStatus::Archived,
+                _ => CourseStatus::Draft,
+            },
+            category: r.category,
+            tags: serde_json::from_str(&r.tags.unwrap_or_default()).unwrap_or_default(),
+            instructor_id: r.instructor_id,
+            enrollment_count: r.enrollment_count,
+            completion_rate: r.completion_rate as f32,
+            rating: r.rating as f32,
+            language: r.language.unwrap_or_else(|| "en".to_string()),
+            difficulty: r.difficulty.unwrap_or_else(|| "beginner".to_string()),
+            duration_hours: r.duration_hours,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            published_at: r.published_at,
+        })
+        .collect();
+
+    let total = courses.len() as i64;
+
+    Ok((courses, total))
+}

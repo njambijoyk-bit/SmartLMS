@@ -232,6 +232,88 @@ pub async fn get_course_stats(pool: &PgPool, course_id: Uuid) -> Result<CourseSt
     })
 }
 
+/// Update module
+pub async fn update_module(
+    pool: &PgPool,
+    module_id: Uuid,
+    req: &UpdateModuleRequest,
+) -> Result<Module, String> {
+    course_db::update_module(pool, module_id, req)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete module
+pub async fn delete_module(pool: &PgPool, module_id: Uuid) -> Result<(), String> {
+    course_db::delete_module(pool, module_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Update lesson
+pub async fn update_lesson(
+    pool: &PgPool,
+    lesson_id: Uuid,
+    req: &UpdateLessonRequest,
+) -> Result<Lesson, String> {
+    course_db::update_lesson(pool, lesson_id, req)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete lesson
+pub async fn delete_lesson(pool: &PgPool, lesson_id: Uuid) -> Result<(), String> {
+    course_db::delete_lesson(pool, lesson_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Reorder modules
+pub async fn reorder_modules(
+    pool: &PgPool,
+    items: &[ReorderItem],
+) -> Result<(), String> {
+    course_db::reorder_modules(pool, items)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Reorder lessons
+pub async fn reorder_lessons(
+    pool: &PgPool,
+    items: &[ReorderItem],
+) -> Result<(), String> {
+    course_db::reorder_lessons(pool, items)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete course
+pub async fn delete_course(pool: &PgPool, course_id: Uuid) -> Result<(), String> {
+    course_db::delete_course(pool, course_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get instructor's courses
+pub async fn get_instructor_courses(
+    pool: &PgPool,
+    instructor_id: Uuid,
+    page: i64,
+    per_page: i64,
+) -> Result<CourseListResponse, String> {
+    let (courses, total) = course_db::get_instructor_courses(pool, instructor_id, page, per_page)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(CourseListResponse {
+        courses,
+        total,
+        page,
+        per_page,
+    })
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct CourseStats {
     pub enrollment_count: i64,
