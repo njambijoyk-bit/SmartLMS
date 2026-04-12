@@ -3,6 +3,7 @@ pub mod abac;
 pub mod ai_assistant;
 pub mod assessments;
 pub mod auth;
+pub mod automation;
 pub mod blockchain;
 pub mod code_sandbox;
 pub mod communication;
@@ -40,6 +41,7 @@ pub fn create_api_router() -> axum::Router {
         .nest("/employer", employer::employer_router())
         .nest("/library", library::library_router())
         .nest("/gamification", gamification::create_router())
+        .nest("/automation", automation::create_router())
         .nest("/developer", developer::developer_router())
     // .nest("/users", users::users_router())
 }
