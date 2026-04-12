@@ -18,6 +18,7 @@ pub mod live;
 pub mod mobile;
 pub mod upgrade;
 pub mod users;
+pub mod developer;
 
 /// Combine all routers into main API
 pub fn create_api_router() -> axum::Router {
@@ -39,5 +40,6 @@ pub fn create_api_router() -> axum::Router {
         .nest("/employer", employer::employer_router())
         .nest("/library", library::library_router())
         .nest("/gamification", gamification::create_router())
+        .nest("/developer", developer::developer_router())
     // .nest("/users", users::users_router())
 }
