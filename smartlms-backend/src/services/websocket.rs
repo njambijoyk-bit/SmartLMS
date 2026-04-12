@@ -7,11 +7,13 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{info, warn, error};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 /// Message types for WebSocket communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -364,6 +366,119 @@ impl WebSocketManager {
         stats.insert("channel_subscribers".to_string(), serde_json::json!(channel_stats));
         
         stats
+    }
+    
+    /// Send assignment submission notification
+    pub async fn notify_assignment_submission(
+        &self,
+        student_id: &str,
+        assignment_id: &str,
+        course_id: &str,
+    ) {
+        let message = WsMessage::Notification {
+            title: "Assignment Submitted".to_string(),
+            message: format!("Your assignment {} has been submitted", assignment_id),
+            notification_type: "assignment".to_string(),
+            data: Some(json!({
+                "assignment_id": assignment_id,
+                "course_id": course_id,
+                "submitted_at": Utc::now()
+            })),
+        };
+        
+        if let Err(e) = self.send_to_user(student_id, message).await {
+            warn!("Failed to send assignment submission notification to {}: {}", student_id, e);
+        }
+    }
+    
+    /// Send grade release notification
+    pub async fn notify_grade_released(
+        &self,
+        student_id: &str,
+        assignment_id: &str,
+        course_id: &str,
+        grade: f64,
+    ) {
+        let message = WsMessage::Notification {
+            title: "Grade Released".to_string(),
+            message: format!("Your grade for assignment {} is available", assignment_id),
+            notification_type: "grade".to_string(),
+            data: Some(json!({
+                "assignment_id": assignment_id,
+                "course_id": course_id,
+                "grade": grade,
+                "released_at": Utc::now()
+            })),
+        };
+        
+        if let Err(e) = self.send_to_user(student_id, message).await {
+            warn!("Failed to send grade notification to {}: {}", student_id, e);
+        }
+    }
+    
+    /// Send live class event (student joined/left)
+    pub async fn notify_live_class_participant(
+        &self,
+        class_id: &str,
+        user_id: &str,
+        user_name: &str,
+        action: &str, // "joined" or "left"
+    ) {
+        self.send_live_class_event(
+            class_id,
+            format!("participant_{}", action),
+            Some(json!({
+                "user_id": user_id,
+                "user_name": user_name,
+                "timestamp": Utc::now()
+            })),
+        ).await;
+    }
+    
+    /// Send quiz/assessment notification
+    pub async fn notify_assessment(
+        &self,
+        user_id: &str,
+        assessment_id: &str,
+        assessment_type: &str,
+        message: &str,
+        data: Option<serde_json::Value>,
+    ) {
+        let ws_message = WsMessage::Notification {
+            title: format!("{} Update", assessment_type),
+            message: message.to_string(),
+            notification_type: "assessment".to_string(),
+            data: data.or_else(|| Some(json!({
+                "assessment_id": assessment_id,
+                "type": assessment_type,
+                "timestamp": Utc::now()
+            }))),
+        };
+        
+        if let Err(e) = self.send_to_user(user_id, ws_message).await {
+            warn!("Failed to send assessment notification to {}: {}", user_id, e);
+        }
+    }
+    
+    /// Get online users count
+    pub async fn get_online_count(&self) -> usize {
+        let connections = self.connections.read().await;
+        connections.values().filter(|c| c.user_id.is_some()).count()
+    }
+    
+    /// Check if a user is online
+    pub async fn is_user_online(&self, user_id: &str) -> bool {
+        let user_channels = self.user_channels.read().await;
+        user_channels.contains_key(user_id)
+    }
+    
+    /// Get list of online users
+    pub async fn get_online_users(&self) -> Vec<String> {
+        let connections = self.connections.read().await;
+        connections
+            .values()
+            .filter_map(|c| c.user_id.clone())
+            .collect()
     }
 }
 
