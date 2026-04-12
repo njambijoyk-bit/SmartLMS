@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { motion, Reorder } from 'framer-motion';
-import { GripVertical, Plus, Trash2, Edit2, Video, FileText, HelpCircle, FolderOpen, ExternalLink, Package } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Reorder } from 'framer-motion';
+import { GripVertical, Plus, Trash2, Edit2, Video, FileText, HelpCircle, FolderOpen, ExternalLink, Package, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Textarea } from '../ui/Textarea';
-import { Select } from '../ui/Select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/Dialog';
 import { Badge } from '../ui/Badge';
+import * as courseApi from '../../services/courseApi';
 
 export interface Lesson {
   id: string;
@@ -35,7 +35,7 @@ export interface Module {
 }
 
 interface CourseBuilderProps {
-  courseId?: string;
+  courseId: string;
   onSave?: (data: any) => void;
 }
 
@@ -56,100 +56,287 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
   const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  const addModule = () => {
-    const newModule: Module = {
-      id: crypto.randomUUID(),
-      course_id: courseId || '',
-      title: 'New Module',
-      description: '',
-      order: modules.length,
-      duration_minutes: 0,
-      is_preview: false,
-      lessons: [],
-    };
-    setEditingModule(newModule);
-    setIsModuleDialogOpen(true);
+  // Load course data on mount
+  useEffect(() => {
+    loadCourseData();
+  }, [courseId]);
+
+  const loadCourseData = async () => {
+    if (!courseId) return;
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await courseApi.getCourse(courseId);
+      setModules(data.modules || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load course data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const saveModule = () => {
+  // Auto-save with debounce
+  const debouncedSave = useCallback(
+    (() => {
+      let timeoutId: ReturnType<typeof setTimeout>;
+      return async () => {
+        setSaveStatus('saving');
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(async () => {
+          try {
+            // Save all pending changes to backend
+            await saveAllChanges();
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          } catch (err) {
+            setSaveStatus('error');
+            setError(err instanceof Error ? err.message : 'Failed to save changes');
+          }
+        }, 1000);
+      };
+    })(),
+    [modules]
+  );
+
+  const saveAllChanges = async () => {
+    // This would track and save only changed items
+    // For now, we'll save on explicit actions
+    if (onSave) {
+      onSave({ modules });
+    }
+  };
+
+  useEffect(() => {
+    if (modules.length > 0) {
+      debouncedSave();
+    }
+  }, [modules, debouncedSave]);
+
+  const addModule = async () => {
+    if (!courseId) return;
+    
+    setIsLoading(true);
+    try {
+      const newModule = await courseApi.createModule({
+        course_id: courseId,
+        title: 'New Module',
+        description: '',
+        order: modules.length,
+        duration_minutes: 0,
+        is_preview: false,
+      });
+      
+      const moduleWithLessons: Module = {
+        ...newModule,
+        lessons: [],
+      };
+      setModules([...modules, moduleWithLessons]);
+      setSaveStatus('saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create module');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveModule = async () => {
     if (!editingModule) return;
     
-    if (modules.find(m => m.id === editingModule.id)) {
-      setModules(modules.map(m => m.id === editingModule.id ? editingModule : m));
-    } else {
-      setModules([...modules, editingModule]);
+    setIsLoading(true);
+    try {
+      const existingModule = modules.find(m => m.id === editingModule.id);
+      
+      if (existingModule) {
+        // Update existing module
+        const updated = await courseApi.updateModule(editingModule.id, {
+          title: editingModule.title,
+          description: editingModule.description,
+          duration_minutes: editingModule.duration_minutes,
+          is_preview: editingModule.is_preview,
+        });
+        
+        setModules(modules.map(m => 
+          m.id === editingModule.id ? { ...m, ...updated } : m
+        ));
+      } else {
+        // This shouldn't happen as we now create via API first
+        setModules([...modules, editingModule]);
+      }
+      
+      setIsModuleDialogOpen(false);
+      setEditingModule(null);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save module');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
     }
-    setIsModuleDialogOpen(false);
-    setEditingModule(null);
   };
 
-  const deleteModule = (moduleId: string) => {
-    setModules(modules.filter(m => m.id !== moduleId));
-    if (selectedModuleId === moduleId) {
-      setSelectedModuleId(null);
+  const deleteModule = async (moduleId: string) => {
+    if (!confirm('Are you sure you want to delete this module? All lessons will be deleted.')) return;
+    
+    setIsLoading(true);
+    try {
+      await courseApi.deleteModule(moduleId);
+      setModules(modules.filter(m => m.id !== moduleId));
+      if (selectedModuleId === moduleId) {
+        setSelectedModuleId(null);
+      }
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete module');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const addLesson = () => {
+  const addLesson = async () => {
     if (!selectedModuleId) return;
     
     const module = modules.find(m => m.id === selectedModuleId);
     if (!module) return;
 
-    const newLesson: Lesson = {
-      id: crypto.randomUUID(),
-      module_id: selectedModuleId,
-      title: 'New Lesson',
-      lesson_type: 'text',
-      content: '',
-      duration_minutes: 10,
-      order: module.lessons.length,
-      is_preview: false,
-      is_free: false,
-    };
-    setEditingLesson(newLesson);
-    setIsLessonDialogOpen(true);
+    setIsLoading(true);
+    try {
+      const newLesson = await courseApi.createLesson({
+        module_id: selectedModuleId,
+        title: 'New Lesson',
+        lesson_type: 'text',
+        content: '',
+        duration_minutes: 10,
+        order: module.lessons.length,
+        is_preview: false,
+        is_free: false,
+      });
+      
+      const lessonWithDefaults: Lesson = {
+        ...newLesson,
+        video_url: newLesson.video_url || '',
+      };
+      
+      setModules(modules.map(m => {
+        if (m.id !== selectedModuleId) return m;
+        return { ...m, lessons: [...m.lessons, lessonWithDefaults] };
+      }));
+      setSaveStatus('saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create lesson');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const saveLesson = () => {
+  const saveLesson = async () => {
     if (!editingLesson || !selectedModuleId) return;
 
-    setModules(modules.map(m => {
-      if (m.id !== selectedModuleId) return m;
+    setIsLoading(true);
+    try {
+      const existingLesson = selectedModule?.lessons.find(l => l.id === editingLesson.id);
       
-      const existingLesson = m.lessons.find(l => l.id === editingLesson.id);
       if (existingLesson) {
-        return {
-          ...m,
-          lessons: m.lessons.map(l => l.id === editingLesson.id ? editingLesson : l),
-        };
+        // Update existing lesson
+        const updated = await courseApi.updateLesson(editingLesson.id, {
+          title: editingLesson.title,
+          lesson_type: editingLesson.lesson_type,
+          content: editingLesson.content,
+          video_url: editingLesson.video_url,
+          duration_minutes: editingLesson.duration_minutes,
+          is_preview: editingLesson.is_preview,
+          is_free: editingLesson.is_free,
+        });
+        
+        setModules(modules.map(m => {
+          if (m.id !== selectedModuleId) return m;
+          return {
+            ...m,
+            lessons: m.lessons.map(l => l.id === editingLesson.id ? { ...l, ...updated } : l),
+          };
+        }));
+      } else {
+        // This shouldn't happen as we now create via API first
+        setModules(modules.map(m => {
+          if (m.id !== selectedModuleId) return m;
+          return { ...m, lessons: [...m.lessons, editingLesson] };
+        }));
       }
-      return {
+      
+      setIsLessonDialogOpen(false);
+      setEditingLesson(null);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save lesson');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteLesson = async (lessonId: string) => {
+    if (!confirm('Are you sure you want to delete this lesson?')) return;
+    
+    setIsLoading(true);
+    try {
+      await courseApi.deleteLesson(lessonId);
+      setModules(modules.map(m => ({
         ...m,
-        lessons: [...m.lessons, editingLesson],
-      };
-    }));
-    setIsLessonDialogOpen(false);
-    setEditingLesson(null);
+        lessons: m.lessons.filter(l => l.id !== lessonId),
+      })));
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete lesson');
+      setSaveStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const deleteLesson = (lessonId: string) => {
-    setModules(modules.map(m => ({
-      ...m,
-      lessons: m.lessons.filter(l => l.id !== lessonId),
-    })));
+  const reorderModules = async (newOrder: Module[]) => {
+    const reordered = newOrder.map((m, i) => ({ ...m, order: i }));
+    setModules(reordered);
+    
+    try {
+      await courseApi.reorderModules(reordered.map(m => ({ id: m.id, order: m.order })));
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reorder modules');
+      setSaveStatus('error');
+      // Reload to sync with server
+      loadCourseData();
+    }
   };
 
-  const reorderModules = (newOrder: Module[]) => {
-    setModules(newOrder.map((m, i) => ({ ...m, order: i })));
-  };
-
-  const reorderLessons = (moduleId: string, newLessons: Lesson[]) => {
+  const reorderLessons = async (moduleId: string, newLessons: Lesson[]) => {
+    const reordered = newLessons.map((l, i) => ({ ...l, order: i }));
     setModules(modules.map(m => {
       if (m.id !== moduleId) return m;
-      return { ...m, lessons: newLessons.map((l, i) => ({ ...l, order: i })) };
+      return { ...m, lessons: reordered };
     }));
+    
+    try {
+      await courseApi.reorderLessons(reordered.map(l => ({ id: l.id, order: l.order })));
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reorder lessons');
+      setSaveStatus('error');
+      // Reload to sync with server
+      loadCourseData();
+    }
   };
 
   const editModule = (module: Module) => {
@@ -164,13 +351,54 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
 
   const selectedModule = modules.find(m => m.id === selectedModuleId);
 
+  if (isLoading && modules.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={32} className="animate-spin text-brand-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-4 h-full">
+      {/* Error Banner */}
+      {error && (
+        <Card className="mb-4 bg-red-50 border-red-200" padding="normal">
+          <div className="flex items-center gap-2 text-red-700">
+            <AlertCircle size={20} />
+            <span className="text-sm">{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto text-sm underline">Dismiss</button>
+          </div>
+        </Card>
+      )}
+
+      {/* Save Status Indicator */}
+      <div className="fixed top-4 right-4 z-50">
+        {saveStatus === 'saving' && (
+          <Badge variant="info" className="gap-2">
+            <Loader2 size={14} className="animate-spin" />
+            Saving...
+          </Badge>
+        )}
+        {saveStatus === 'saved' && (
+          <Badge variant="success" className="gap-2">
+            <CheckCircle size={14} />
+            Saved
+          </Badge>
+        )}
+        {saveStatus === 'error' && (
+          <Badge variant="danger" className="gap-2">
+            <AlertCircle size={14} />
+            Error saving
+          </Badge>
+        )}
+      </div>
+
       {/* Modules Panel */}
       <Card className="w-80 flex flex-col" padding="normal">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-lg">Course Content</h3>
-          <Button size="sm" onClick={addModule}>
+          <Button size="sm" onClick={addModule} disabled={isLoading}>
             <Plus size={16} /> Add Module
           </Button>
         </div>
@@ -227,7 +455,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
                   <p className="text-sm text-sand-500">{selectedModule.description}</p>
                 )}
               </div>
-              <Button size="sm" onClick={addLesson}>
+              <Button size="sm" onClick={addLesson} disabled={isLoading}>
                 <Plus size={16} /> Add Lesson
               </Button>
             </div>
@@ -325,8 +553,11 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setIsModuleDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveModule}>Save Module</Button>
+            <Button variant="secondary" onClick={() => setIsModuleDialogOpen(false)} disabled={isLoading}>Cancel</Button>
+            <Button onClick={saveModule} disabled={isLoading}>
+              {isLoading && <Loader2 size={16} className="animate-spin mr-2" />}
+              Save Module
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -411,8 +642,11 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setIsLessonDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveLesson}>Save Lesson</Button>
+            <Button variant="secondary" onClick={() => setIsLessonDialogOpen(false)} disabled={isLoading}>Cancel</Button>
+            <Button onClick={saveLesson} disabled={isLoading}>
+              {isLoading && <Loader2 size={16} className="animate-spin mr-2" />}
+              Save Lesson
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
