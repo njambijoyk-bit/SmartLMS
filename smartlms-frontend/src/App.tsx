@@ -39,6 +39,8 @@ import { PeerReviewPage } from './pages/peerreview/PeerReviewPage';
 import { EmployerPortalPage } from './pages/employer/EmployerPortalPage';
 import { RPLPage } from './pages/rpl/RPLPage';
 import { ProctoringPage } from './pages/proctoring/ProctoringPage';
+import DeveloperPage from './pages/developer';
+import AccessibilityPage from './pages/accessibility';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -96,6 +98,8 @@ function AppRoutes() {
         <Route path="/employer" element={<EmployerPortalPage />} />
         <Route path="/rpl" element={<RPLPage />} />
         <Route path="/proctoring" element={<ProctoringPage />} />
+        <Route path="/developer" element={<DeveloperPage />} />
+        <Route path="/accessibility" element={<AccessibilityPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
