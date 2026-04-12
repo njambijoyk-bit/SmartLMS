@@ -84,7 +84,7 @@ export function CourseEditorPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Card padding="normal" className="max-w-md">
+        <Card padding="md" className="max-w-md">
           <h3 className="font-semibold text-lg mb-2">Error Loading Course</h3>
           <p className="text-sm text-sand-500 mb-4">{error}</p>
           <Button onClick={() => navigate('/instructor/courses')}>

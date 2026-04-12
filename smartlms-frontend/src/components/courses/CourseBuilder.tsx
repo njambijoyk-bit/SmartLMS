@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Textarea } from '../ui/Textarea';
+import { Select } from '../ui/Select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/Dialog';
 import { Badge } from '../ui/Badge';
 import * as courseApi from '../../services/courseApi';
@@ -363,7 +364,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
     <div className="flex gap-4 h-full">
       {/* Error Banner */}
       {error && (
-        <Card className="mb-4 bg-red-50 border-red-200" padding="normal">
+        <Card className="mb-4 bg-red-50 border-red-200" padding="md">
           <div className="flex items-center gap-2 text-red-700">
             <AlertCircle size={20} />
             <span className="text-sm">{error}</span>
@@ -395,7 +396,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
       </div>
 
       {/* Modules Panel */}
-      <Card className="w-80 flex flex-col" padding="normal">
+      <Card className="w-80 flex flex-col" padding="md">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-lg">Course Content</h3>
           <Button size="sm" onClick={addModule} disabled={isLoading}>
@@ -408,7 +409,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
             <Reorder.Item key={module.id} value={module} className="cursor-grab active:cursor-grabbing">
               <Card 
                 hover 
-                padding="small"
+                padding="sm"
                 className={`mb-2 ${selectedModuleId === module.id ? 'ring-2 ring-brand-500' : ''}`}
               >
                 <div className="flex items-start gap-2">
@@ -445,7 +446,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
       </Card>
 
       {/* Lessons Panel */}
-      <Card className="flex-1 flex flex-col" padding="normal">
+      <Card className="flex-1 flex flex-col" padding="md">
         {selectedModule ? (
           <>
             <div className="flex items-center justify-between mb-4">
@@ -465,7 +466,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
                 const Icon = LESSON_TYPE_ICONS[lesson.lesson_type];
                 return (
                   <Reorder.Item key={lesson.id} value={lesson} className="cursor-grab active:cursor-grabbing">
-                    <Card hover padding="small" className="mb-2">
+                    <Card hover padding="sm" className="mb-2">
                       <div className="flex items-center gap-3">
                         <GripVertical size={16} className="text-sand-400 shrink-0" />
                         <Icon size={16} className="text-brand-500 shrink-0" />
@@ -487,7 +488,7 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">{lesson.lesson_type}</Badge>
+                            <Badge variant="default" className="text-xs">{lesson.lesson_type}</Badge>
                           </div>
                         </div>
                       </div>
@@ -581,17 +582,16 @@ export function CourseBuilder({ courseId, onSave }: CourseBuilderProps) {
                 <Label>Lesson Type</Label>
                 <Select
                   value={editingLesson.lesson_type}
-                  onChange={(value) => setEditingLesson({ ...editingLesson, lesson_type: value as Lesson['lesson_type'] })}
-                  options={[
-                    { value: 'video', label: 'Video' },
-                    { value: 'text', label: 'Text Content' },
-                    { value: 'quiz', label: 'Quiz' },
-                    { value: 'assignment', label: 'Assignment' },
-                    { value: 'document', label: 'Document' },
-                    { value: 'external', label: 'External Link' },
-                    { value: 'scorm', label: 'SCORM Package' },
-                  ]}
-                />
+                  onChange={(e) => setEditingLesson({ ...editingLesson, lesson_type: e.target.value as Lesson['lesson_type'] })}
+                >
+                  <option value="video">Video</option>
+                  <option value="text">Text Content</option>
+                  <option value="quiz">Quiz</option>
+                  <option value="assignment">Assignment</option>
+                  <option value="document">Document</option>
+                  <option value="external">External Link</option>
+                  <option value="scorm">SCORM Package</option>
+                </Select>
               </div>
               {(editingLesson.lesson_type === 'text' || editingLesson.lesson_type === 'document') && (
                 <div>
