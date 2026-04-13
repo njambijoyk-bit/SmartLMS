@@ -31,6 +31,9 @@ pub mod developer;
 pub mod vpat;
 pub mod websocket;
 pub mod parents_alumni;
+pub mod exam_cards;
+pub mod clearance;
+pub mod timetable;
 
 /// Combine all routers into main API
 pub fn create_api_router() -> axum::Router {
@@ -82,6 +85,10 @@ pub fn create_api_router() -> axum::Router {
         .nest("/parents", parents_alumni::parents_router())
         .nest("/id-cards", parents_alumni::id_cards_router())
         .nest("/alumni", parents_alumni::alumni_router())
+        // Week 6 & 7 New Features
+        .nest("/exam-cards", exam_cards::exam_cards_router())
+        .nest("/clearance", clearance::clearance_router())
+        .nest("/timetable", timetable::timetable_router())
         // Fees & Payments
         .nest("/fees", fees::fees_router())
     // .nest("/users", users::users_router())
