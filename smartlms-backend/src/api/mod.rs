@@ -14,6 +14,7 @@ pub mod courses;
 pub mod course_groups;
 pub mod enrollments;
 pub mod employer;
+pub mod fees;
 pub mod gamification;
 pub mod institutions;
 pub mod iot;
@@ -81,5 +82,7 @@ pub fn create_api_router() -> axum::Router {
         .nest("/parents", parents_alumni::parents_router())
         .nest("/id-cards", parents_alumni::id_cards_router())
         .nest("/alumni", parents_alumni::alumni_router())
+        // Fees & Payments
+        .nest("/fees", fees::fees_router())
     // .nest("/users", users::users_router())
 }

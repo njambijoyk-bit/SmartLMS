@@ -691,6 +691,57 @@ pub mod service {
             generated_at: Utc::now(),
         })
     }
+
+    /// Get all fees for a student
+    pub async fn get_student_fees(
+        pool: &PgPool,
+        student_id: uuid::Uuid,
+    ) -> Result<Vec<StudentFee>, String> {
+        let fees = sqlx::query_as!(
+            StudentFee,
+            "SELECT * FROM student_fees WHERE student_id = $1 ORDER BY due_date DESC",
+            student_id
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(fees)
+    }
+
+    /// Get payment by ID
+    pub async fn get_payment(
+        pool: &PgPool,
+        payment_id: uuid::Uuid,
+    ) -> Result<Option<Payment>, String> {
+        let payment = sqlx::query_as!(
+            Payment,
+            "SELECT * FROM payments WHERE id = $1",
+            payment_id
+        )
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(payment)
+    }
+
+    /// Get fee structures for an institution
+    pub async fn get_institution_fee_structures(
+        pool: &PgPool,
+        institution_id: uuid::Uuid,
+    ) -> Result<Vec<FeeStructure>, String> {
+        let fees = sqlx::query_as!(
+            FeeStructure,
+            "SELECT * FROM fee_structures WHERE institution_id = $1 ORDER BY created_at DESC",
+            institution_id
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(fees)
+    }
 }
 
 #[derive(Debug, Deserialize)]
