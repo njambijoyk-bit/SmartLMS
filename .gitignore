@@ -1,9 +1,11 @@
 ```
 # Dependencies
 target/
+**/target/
 
 # Logs and temp files
 *.log
+*.tmp
 
 # Environment
 .env
@@ -13,7 +15,10 @@ target/
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Rust-specific
 Cargo.lock
+**/Cargo.lock
 ```
