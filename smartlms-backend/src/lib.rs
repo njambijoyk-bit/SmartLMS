@@ -1,7 +1,8 @@
 //! SmartLMS Backend
 //!
-//! Post-reset (2026-04-22): trimmed to the Phase 0 core (tenant router,
-//! institutions). Phase 1 will add users, courses, enrollments, assessments.
+//! Phase 1 surface: multi-tenant router (from PR #53) plus users, RBAC, and
+//! auth (this PR). Phase 1 follow-ups will add institutions onboarding,
+//! courses, enrollments, and assessments against the master reference spec.
 
 pub mod api;
 pub mod db;
