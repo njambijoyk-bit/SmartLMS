@@ -60,7 +60,7 @@ async fn main() {
     // ------------------------------------------------------------------
     // Router
     // ------------------------------------------------------------------
-    let api_router = smartlms_backend::api::create_api_router();
+    let api_router = smartlms_backend::api::create_api_router(router_state.clone());
 
     // Warm the domain_map from the master DB so custom domains resolve
     // without a first-request cache miss. If the table is missing (first boot,
