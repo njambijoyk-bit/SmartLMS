@@ -1,0 +1,112 @@
+---
+# SmartLMS Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartlms-api
+  namespace: smartlms
+  labels:
+    app: smartlms-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: smartlms-api
+  template:
+    metadata:
+      labels:
+        app: smartlms-api
+    spec:
+      containers:
+      - name: api
+        image: smartlms/api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: smartlms-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartlms-config
+              key: redis-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smartlms-secrets
+              key: jwt-secret
+        - name: RUST_LOG
+          value: "info"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: smartlms-config
+---
+# Service for API
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartlms-api
+  namespace: smartlms
+spec:
+  type: ClusterIP
+  selector:
+    app: smartlms-api
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: smartlms-api-hpa
+  namespace: smartlms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: smartlms-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

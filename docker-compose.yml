@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Master Database
+  postgres-master:
+    image: postgres:16-alpine
+    container_name: smartlms-postgres-master
+    environment:
+      POSTGRES_USER: smartlms
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_in_production}
+      POSTGRES_DB: smartlms_master
+    volumes:
+      - postgres-master-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/master/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartlms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smartlms-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: smartlms-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smartlms-network
+
+  # SmartLMS Backend API
+  api:
+    build:
+      context: ./smartlms-backend
+      dockerfile: Dockerfile
+    container_name: smartlms-api
+    environment:
+      - DATABASE_URL=postgres://smartlms:${DB_PASSWORD:-change_me_in_production}@postgres-master:5432/smartlms_master
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
+      - RUST_LOG=info
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./smartlms-backend/config:/app/config:ro
+    networks:
+      - smartlms-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: smartlms-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./infrastructure/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - smartlms-network
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: smartlms-prometheus
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - smartlms-network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: smartlms-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - smartlms-network
+
+networks:
+  smartlms-network:
+    driver: bridge
+
+volumes:
+  postgres-master-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:

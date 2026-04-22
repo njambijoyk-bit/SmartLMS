@@ -1,0 +1,19 @@
+{
+  "name": "@smartlms/sdk",
+  "version": "0.2.0",
+  "description": "TypeScript SDK for the SmartLMS Engine API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --noEmit && echo 'SDK type-check passed'",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": ["smartlms", "lms", "sdk"],
+  "license": "MIT",
+  "files": ["dist", "src"]
+}
