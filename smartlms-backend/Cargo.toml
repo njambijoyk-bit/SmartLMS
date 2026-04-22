@@ -69,6 +69,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Environment
 dotenv = "0.15"
 
+# CSV (used by data-import services)
+csv = "1.3"
+
+# Futures utilities (Stream/Sink traits, combinators)
+futures = "0.3"
+
+# Fixed-precision decimals for money/grades
+rust_decimal = { version = "1", features = ["serde"] }
+
 # MQTT Client
 rumqttc = "0.24"
 

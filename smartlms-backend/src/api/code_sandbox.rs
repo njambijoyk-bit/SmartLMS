@@ -1,11 +1,25 @@
-use actix_web::{web, HttpResponse, Error};
+// Code sandbox API - executes user-supplied code in isolated containers.
+//
+// The sandbox service itself is expensive to spin up (it holds a handle to
+// active tokio child processes), so handlers receive it via Extension rather
+// than State. Tests that don't need the sandbox can simply not inject it.
+
+use axum::{
+    extract::{Extension, Path},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
 use crate::services::code_sandbox::{CodeSandboxService, ExecutionRequest, ExecutionStatus};
 
-pub fn code_sandbox_router() -> axum::Router {
-    use axum::routing::{get, post};
-    
-    axum::Router::new()
+pub type SharedSandbox = Arc<CodeSandboxService>;
+
+pub fn code_sandbox_router() -> Router {
+    Router::new()
         .route("/execute", post(execute_code))
         .route("/languages", get(get_supported_languages))
         .route("/stop/:execution_id", post(stop_execution))
@@ -13,54 +27,64 @@ pub fn code_sandbox_router() -> axum::Router {
 
 #[derive(Deserialize)]
 pub struct ExecuteCodeRequest {
-    language: String,
-    code: String,
+    pub language: String,
+    pub code: String,
     #[serde(default)]
-    input: Option<String>,
+    pub input: Option<String>,
     #[serde(default = "default_timeout")]
-    timeout_ms: u64,
+    pub timeout_ms: u64,
     #[serde(default = "default_memory")]
-    memory_limit_mb: u64,
+    pub memory_limit_mb: u64,
     #[serde(default = "default_cpu")]
-    cpu_limit: f32,
+    pub cpu_limit: f32,
 }
 
-fn default_timeout() -> u64 { 5000 }
-fn default_memory() -> u64 { 128 }
-fn default_cpu() -> f32 { 0.5 }
+fn default_timeout() -> u64 {
+    5000
+}
+fn default_memory() -> u64 {
+    128
+}
+fn default_cpu() -> f32 {
+    0.5
+}
 
 #[derive(Serialize)]
 pub struct ExecuteCodeResponse {
-    id: String,
-    status: String,
-    stdout: String,
-    stderr: String,
-    exit_code: Option<i32>,
-    execution_time_ms: u64,
-    memory_used_kb: u64,
-    error_message: Option<String>,
+    pub id: String,
+    pub status: String,
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: Option<i32>,
+    pub execution_time_ms: u64,
+    pub memory_used_kb: u64,
+    pub error_message: Option<String>,
 }
 
 #[derive(Serialize)]
 pub struct LanguageInfo {
-    name: String,
-    version: String,
-    file_extension: String,
+    pub name: String,
+    pub version: String,
+    pub file_extension: String,
 }
 
 pub async fn execute_code(
-    sandbox: web::Data<CodeSandboxService>,
-    body: web::Json<ExecuteCodeRequest>,
-) -> Result<HttpResponse, Error> {
+    sandbox: Option<Extension<SharedSandbox>>,
+    Json(body): Json<ExecuteCodeRequest>,
+) -> impl IntoResponse {
+    let Some(Extension(sandbox)) = sandbox else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "sandbox not configured").into_response();
+    };
+
     let request = ExecutionRequest {
-        language: body.language.clone(),
-        code: body.code.clone(),
-        input: body.input.clone(),
+        language: body.language,
+        code: body.code,
+        input: body.input,
         timeout_ms: body.timeout_ms,
         memory_limit_mb: body.memory_limit_mb,
         cpu_limit: body.cpu_limit,
     };
-    
+
     match sandbox.execute(request).await {
         Ok(result) => {
             let response = ExecuteCodeResponse {
@@ -80,20 +104,20 @@ pub async fn execute_code(
                 memory_used_kb: result.memory_used_kb,
                 error_message: result.error_message,
             };
-            
-            Ok(HttpResponse::Ok().json(response))
+            (StatusCode::OK, Json(response)).into_response()
         }
-        Err(e) => {
-            Ok(HttpResponse::BadRequest().body(e.to_string()))
-        }
+        Err(e) => (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     }
 }
 
 pub async fn get_supported_languages(
-    sandbox: web::Data<CodeSandboxService>,
-) -> Result<HttpResponse, Error> {
+    sandbox: Option<Extension<SharedSandbox>>,
+) -> impl IntoResponse {
+    let Some(Extension(sandbox)) = sandbox else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "sandbox not configured").into_response();
+    };
+
     let languages = sandbox.get_supported_languages().await;
-    
     let language_info: Vec<LanguageInfo> = languages
         .iter()
         .map(|lang| {
@@ -107,7 +131,6 @@ pub async fn get_supported_languages(
                 "go" => ("1.21", "go"),
                 _ => ("unknown", "txt"),
             };
-            
             LanguageInfo {
                 name: lang.clone(),
                 version: version.to_string(),
@@ -115,33 +138,34 @@ pub async fn get_supported_languages(
             }
         })
         .collect();
-    
-    Ok(HttpResponse::Ok().json(language_info))
+
+    (StatusCode::OK, Json(language_info)).into_response()
 }
 
 pub async fn stop_execution(
-    sandbox: web::Data<CodeSandboxService>,
-    path: web::Path<String>,
-) -> Result<HttpResponse, Error> {
-    let execution_id = path.into_inner();
-    
-    if sandbox.stop_execution(&execution_id).await {
-        Ok(HttpResponse::Ok().json(serde_json::json!({
-            "message": "Execution stopped successfully",
-            "execution_id": execution_id
-        })))
-    } else {
-        Ok(HttpResponse::NotFound().json(serde_json::json!({
-            "error": "Execution not found or already completed"
-        })))
-    }
-}
+    sandbox: Option<Extension<SharedSandbox>>,
+    Path(execution_id): Path<String>,
+) -> impl IntoResponse {
+    let Some(Extension(sandbox)) = sandbox else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "sandbox not configured").into_response();
+    };
 
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/api/code-sandbox")
-            .route("/execute", web::post().to(execute_code))
-            .route("/languages", web::get().to(get_supported_languages))
-            .route("/stop/{execution_id}", web::post().to(stop_execution))
-    );
+    if sandbox.stop_execution(&execution_id).await {
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "message": "Execution stopped successfully",
+                "execution_id": execution_id,
+            })),
+        )
+            .into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Execution not found or already completed",
+            })),
+        )
+            .into_response()
+    }
 }

@@ -1,6 +1,6 @@
 // Communication Database Layer - Announcements, Messaging, Forums, Notifications
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 
 use crate::models::communication::*;
