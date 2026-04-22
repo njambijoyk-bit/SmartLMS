@@ -19,18 +19,13 @@ use crate::db::institution as inst_db;
 use crate::models::institution::Institution;
 
 /// Plan tier determines feature access
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlanTier {
+    #[default]
     Starter,
     Growth,
     Enterprise,
-}
-
-impl Default for PlanTier {
-    fn default() -> Self {
-        PlanTier::Starter
-    }
 }
 
 /// Institution-specific configuration
@@ -96,15 +91,14 @@ impl InstitutionCtx {
         self.config.feature_flags.contains(&feature.to_string())
     }
 
-    /// Check if the plan tier meets minimum required tier
+    /// Check if the plan tier meets minimum required tier.
     pub fn has_plan_min(&self, min_tier: PlanTier) -> bool {
-        match (self.plan, min_tier) {
-            (PlanTier::Enterprise, _) => true,
-            (PlanTier::Growth, PlanTier::Starter) => true,
-            (PlanTier::Growth, PlanTier::Growth) => true,
-            (PlanTier::Starter, PlanTier::Starter) => true,
-            _ => false,
-        }
+        matches!(
+            (self.plan, min_tier),
+            (PlanTier::Enterprise, _)
+                | (PlanTier::Growth, PlanTier::Starter | PlanTier::Growth)
+                | (PlanTier::Starter, PlanTier::Starter)
+        )
     }
 }
 
