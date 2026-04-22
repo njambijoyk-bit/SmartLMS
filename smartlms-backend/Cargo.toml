@@ -17,7 +17,7 @@ tower-http = { version = "0.5", features = ["cors", "trace", "fs", "compression-
 tokio = { version = "1", features = ["full"] }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "json"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "json", "ipnetwork", "migrate"] }
 
 # Redis — cache-miss path for the tenant router
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
@@ -26,6 +26,9 @@ redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
 jsonwebtoken = "9"
 bcrypt = "0.15"
 argon2 = "0.5"
+# Refresh-token generation (CSPRNG) and SHA-256 of the token-at-rest.
+rand = "0.8"
+sha2 = "0.10"
 
 # HTTP client
 reqwest = { version = "0.12", features = ["json"] }
