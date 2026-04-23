@@ -1,8 +1,9 @@
 //! Data structures used across the API/service layer.
 //!
 //! Phase 1: institutions (master DB) + users/roles/auth + courses/modules/
-//! lessons/enrollments + onboarding DTOs (per-institution DB).
+//! lessons/enrollments + assessments/questions/attempts + onboarding DTOs.
 
+pub mod assessment;
 pub mod auth;
 pub mod course;
 pub mod institution;
