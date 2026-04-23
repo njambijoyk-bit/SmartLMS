@@ -239,11 +239,20 @@ impl RouterState {
     }
 
     /// Build institution context from database record.
+    ///
+    /// When `database_url` is set we build a dedicated PgPool for the tenant —
+    /// handlers only ever see that pool, so cross-tenant reads are
+    /// architecturally impossible. When `database_url` is NULL we fall back
+    /// to the master pool; this is the single-database self-hosted mode used
+    /// for Phase 1 development and for small single-tenant deployments. In
+    /// that mode, tenant data is segregated by row (via the `InstitutionCtx`
+    /// the handler receives), not by pool — acceptable because the engine
+    /// never serves cross-tenant queries in the same process.
     async fn build_context(&self, inst: &Institution) -> Option<InstitutionCtx> {
-        // Per-institution DB pool — cross-tenant reads are architecturally
-        // impossible because handlers only see this pool.
-        let db_url = inst.database_url.as_ref()?;
-        let pool = PgPool::connect(db_url).await.ok()?;
+        let pool = match inst.database_url.as_ref() {
+            Some(db_url) if !db_url.is_empty() => PgPool::connect(db_url).await.ok()?,
+            _ => self.master_pool.clone(),
+        };
 
         Some(InstitutionCtx {
             id: inst.id,
