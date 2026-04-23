@@ -22,6 +22,10 @@ pub fn create_api_router(state: RouterState) -> Router {
         .nest("/auth", auth::router())
         .nest("/users", users::router())
         .nest("/courses", courses::router())
+        .nest(
+            "/courses/:id/assessments",
+            assessments::course_assessments_router(),
+        )
         .nest("/enrollments", enrollments::router())
         .nest("/questions", assessments::questions_router())
         .nest("/assessments", assessments::assessments_router())
