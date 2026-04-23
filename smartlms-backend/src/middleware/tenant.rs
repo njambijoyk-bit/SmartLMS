@@ -1,9 +1,13 @@
-// Multi-tenant middleware - extracts institution from Host header and injects context
-use crate::tenant::{InstitutionCtx, RouterState};
+//! Multi-tenant middleware: resolves `Host` header → `InstitutionCtx` and
+//! injects it into the request's extensions. Handlers that don't declare an
+//! `Extension<InstitutionCtx>` simply don't see it (unknown-host requests
+//! still pass through so `/health` etc. keep working).
+
+use crate::tenant::RouterState;
 use axum::{
     body::Body,
     extract::{Request, State},
-    http::{header::HOST, Method},
+    http::header::HOST,
     middleware::Next,
     response::Response,
 };
@@ -31,12 +35,12 @@ pub async fn tenant_middleware(
     next.run(request).await
 }
 
-/// Helper to extract InstitutionCtx from request in handlers
+/// Helper to extract `InstitutionCtx` from request in handlers.
 pub mod axum_extract {
     use crate::tenant::InstitutionCtx;
-    use axum::{extract::Extension, http::Request};
+    use axum::extract::Extension;
 
-    /// Extension extractor for InstitutionCtx
+    /// Extension extractor for `InstitutionCtx`.
     pub async fn institution_ctx(Extension(ctx): Extension<InstitutionCtx>) -> InstitutionCtx {
         ctx
     }

@@ -1,28 +1,11 @@
-// Models module - data structures
-pub mod abac;
-pub mod assessment;
-pub mod attendance;
-pub mod backup;
-pub mod communication;
-pub mod course;
-pub mod course_group;
-pub mod institution;
-pub mod iot;
-pub mod live;
-pub mod user;
-pub mod parents_alumni;
+//! Data structures used across the API/service layer. Phase 1: institutions
+//! (master DB) + users/roles/auth (per-institution DB).
 
-pub use abac::*;
-pub use assessment::*;
-pub use attendance::*;
-pub use backup::*;
-pub use communication::*;
-pub use course::*;
-pub use course_group::*;
+pub mod auth;
+pub mod institution;
+pub mod user;
+
 pub use institution::{
     CreateInstitutionRequest, Institution, InstitutionListResponse, UpdateInstitutionRequest,
 };
-pub use iot::*;
-pub use live::*;
-pub use user::{LoginRequest, LoginResponse, RegisterRequest, User};
-pub use parents_alumni::*;
+pub use user::{CreateUserRequest, RoleCode, UpdateUserRequest, User, UserRecord, UserWithRoles};

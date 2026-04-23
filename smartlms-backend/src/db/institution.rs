@@ -1,71 +1,50 @@
-// Database operations for institutions (master database)
+//! Master-DB operations for the `institutions` registry. Uses runtime-checked
+//! queries (not the `sqlx::query!` macro) so `cargo check` doesn't depend on
+//! a live DB or an offline cache — the schema is validated at runtime on the
+//! first query, which is consistent with how the tenant router boots.
+
 use crate::models::institution::{CreateInstitutionRequest, Institution, UpdateInstitutionRequest};
 use sqlx::{PgPool, Row};
 
-/// Find institution by slug in master database
-pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Institution>, sqlx::Error> {
-    let row = sqlx::query!(
-        r#"
-        SELECT id, slug, name, domain, database_url, config, plan_tier, 
-               quotas, license_key, is_active, created_at, updated_at
-        FROM institutions 
-        WHERE slug = $1 AND is_active = true
-        "#,
-        slug
-    )
-    .fetch_optional(pool)
-    .await?;
+const COLUMNS: &str =
+    "id, slug, name, domain, database_url, license_key, is_active, created_at, updated_at";
 
-    Ok(row.map(|r| Institution {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        domain: r.domain,
-        database_url: r.database_url,
-        config: None, // Parse from JSON if needed
+fn row_to_institution(row: sqlx::postgres::PgRow) -> Institution {
+    Institution {
+        id: row.get("id"),
+        slug: row.get("slug"),
+        name: row.get("name"),
+        domain: row.try_get("domain").ok(),
+        database_url: row.try_get("database_url").ok(),
+        config: None,
         plan_tier: None,
         quotas: None,
-        license_key: r.license_key,
-        is_active: r.is_active,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    }))
+        license_key: row.try_get("license_key").ok(),
+        is_active: row.get("is_active"),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
+    }
 }
 
-/// Find institution by custom domain
+pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Institution>, sqlx::Error> {
+    let query = format!("SELECT {COLUMNS} FROM institutions WHERE slug = $1 AND is_active = true");
+    let row = sqlx::query(&query).bind(slug).fetch_optional(pool).await?;
+    Ok(row.map(row_to_institution))
+}
+
 pub async fn find_by_domain(
     pool: &PgPool,
     domain: &str,
 ) -> Result<Option<Institution>, sqlx::Error> {
-    let row = sqlx::query!(
-        r#"
-        SELECT id, slug, name, domain, database_url, config, plan_tier, 
-               quotas, license_key, is_active, created_at, updated_at
-        FROM institutions 
-        WHERE domain = $1 AND is_active = true
-        "#,
-        domain
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(row.map(|r| Institution {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        domain: r.domain,
-        database_url: r.database_url,
-        config: None,
-        plan_tier: None,
-        quotas: None,
-        license_key: r.license_key,
-        is_active: r.is_active,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    }))
+    let query =
+        format!("SELECT {COLUMNS} FROM institutions WHERE domain = $1 AND is_active = true");
+    let row = sqlx::query(&query)
+        .bind(domain)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row.map(row_to_institution))
 }
 
-/// List all institutions with pagination
 pub async fn list(
     pool: &PgPool,
     page: i64,
@@ -73,47 +52,22 @@ pub async fn list(
 ) -> Result<(Vec<Institution>, i64), sqlx::Error> {
     let offset = (page - 1) * per_page;
 
-    let rows = sqlx::query!(
-        r#"
-        SELECT id, slug, name, domain, database_url, config, plan_tier, 
-               quotas, license_key, is_active, created_at, updated_at
-        FROM institutions 
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
-        "#,
-        per_page,
-        offset
-    )
-    .fetch_all(pool)
-    .await?;
+    let query =
+        format!("SELECT {COLUMNS} FROM institutions ORDER BY created_at DESC LIMIT $1 OFFSET $2");
+    let rows = sqlx::query(&query)
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?;
 
-    let total: i64 = sqlx::query!("SELECT COUNT(*) as count FROM institutions")
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM institutions")
         .fetch_one(pool)
-        .await?
-        .count;
+        .await?;
 
-    let institutions = rows
-        .into_iter()
-        .map(|r| Institution {
-            id: r.id,
-            slug: r.slug,
-            name: r.name,
-            domain: r.domain,
-            database_url: r.database_url,
-            config: None,
-            plan_tier: None,
-            quotas: None,
-            license_key: r.license_key,
-            is_active: r.is_active,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-        })
-        .collect();
-
+    let institutions = rows.into_iter().map(row_to_institution).collect();
     Ok((institutions, total))
 }
 
-/// Create new institution
 pub async fn create(
     pool: &PgPool,
     req: &CreateInstitutionRequest,
@@ -121,18 +75,16 @@ pub async fn create(
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
 
-    sqlx::query!(
-        r#"
-        INSERT INTO institutions (id, slug, name, domain, is_active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, true, $5, $6)
-        "#,
-        id,
-        req.slug,
-        req.name,
-        req.domain,
-        now,
-        now
+    sqlx::query(
+        "INSERT INTO institutions (id, slug, name, domain, is_active, created_at, updated_at) \
+         VALUES ($1, $2, $3, $4, true, $5, $6)",
     )
+    .bind(id)
+    .bind(&req.slug)
+    .bind(&req.name)
+    .bind(&req.domain)
+    .bind(now)
+    .bind(now)
     .execute(pool)
     .await?;
 
@@ -152,7 +104,6 @@ pub async fn create(
     })
 }
 
-/// Update institution
 pub async fn update(
     pool: &PgPool,
     id: uuid::Uuid,
@@ -160,61 +111,34 @@ pub async fn update(
 ) -> Result<Option<Institution>, sqlx::Error> {
     let now = chrono::Utc::now();
 
-    sqlx::query!(
-        r#"
-        UPDATE institutions 
-        SET name = COALESCE($1, name),
-            domain = COALESCE($2, domain),
-            updated_at = $3
-        WHERE id = $4
-        "#,
-        req.name,
-        req.domain,
-        now,
-        id
+    sqlx::query(
+        "UPDATE institutions SET \
+            name = COALESCE($1, name), \
+            domain = COALESCE($2, domain), \
+            updated_at = $3 \
+         WHERE id = $4",
     )
+    .bind(&req.name)
+    .bind(&req.domain)
+    .bind(now)
+    .bind(id)
     .execute(pool)
     .await?;
 
-    // Fetch updated record
-    let row = sqlx::query!(
-        r#"
-        SELECT id, slug, name, domain, database_url, config, plan_tier, 
-               quotas, license_key, is_active, created_at, updated_at
-        FROM institutions WHERE id = $1
-        "#,
-        id
-    )
-    .fetch_optional(pool)
-    .await?;
+    let query = format!("SELECT {COLUMNS} FROM institutions WHERE id = $1");
+    let row = sqlx::query(&query).bind(id).fetch_optional(pool).await?;
 
-    Ok(row.map(|r| Institution {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        domain: r.domain,
-        database_url: r.database_url,
-        config: None,
-        plan_tier: None,
-        quotas: None,
-        license_key: r.license_key,
-        is_active: r.is_active,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    }))
+    Ok(row.map(row_to_institution))
 }
 
-/// Delete (deactivate) institution
 pub async fn delete(pool: &PgPool, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
     let now = chrono::Utc::now();
+    let result =
+        sqlx::query("UPDATE institutions SET is_active = false, updated_at = $1 WHERE id = $2")
+            .bind(now)
+            .bind(id)
+            .execute(pool)
+            .await?;
 
-    let rows = sqlx::query!(
-        "UPDATE institutions SET is_active = false, updated_at = $1 WHERE id = $2",
-        now,
-        id
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(rows.rows_affected() > 0)
+    Ok(result.rows_affected() > 0)
 }

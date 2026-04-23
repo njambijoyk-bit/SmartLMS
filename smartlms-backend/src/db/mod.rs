@@ -1,19 +1,8 @@
-// Database module - DB operations
-pub mod abac;
-pub mod assessment;
-pub mod attendance;
-pub mod backup;
-pub mod communication;
-pub mod course;
-pub mod course_group;
-pub mod institution;
-pub mod iot;
-pub mod live;
-pub mod user;
-pub mod parents_alumni;
+//! Database access layer. Phase 1: institution registry (master DB) plus
+//! per-institution users/roles/refresh_tokens. Phase 1 PRs #56–#57 will add
+//! courses/enrollments/assessments.
 
-pub use communication::*;
-pub use institution::*;
-pub use iot::*;
-pub use user::*;
-pub use parents_alumni::*;
+pub mod institution;
+pub mod refresh_token;
+pub mod role;
+pub mod user;
