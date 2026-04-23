@@ -1,5 +1,6 @@
-//! Business-logic layer. Phase 0: just JWT helpers (used by the auth
-//! middleware). Phase 1 adds auth/rbac/onboarding/courses/enrollments/
-//! assessments.
+//! Business-logic layer. Phase 1: password hashing, JWT issuance, and the
+//! register/login/refresh/logout flows.
 
+pub mod auth;
 pub mod jwt;
+pub mod password;

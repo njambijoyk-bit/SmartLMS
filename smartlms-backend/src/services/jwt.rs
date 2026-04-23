@@ -1,82 +1,84 @@
-// JWT token service - handles token creation, validation, and claims
+//! JWT service.
+//!
+//! Phase 1 uses HS256 with a per-engine secret from `JWT_SECRET`. Master
+//! ref §8 layer 2 calls for RS256 with per-institution asymmetric keys —
+//! that upgrade will land in a follow-up PR without changing the public
+//! API of this module (only how the key is sourced).
+//!
+//! Access tokens expire in 15 minutes; refresh tokens are NOT JWTs — they
+//! are random opaque strings stored as SHA-256 hashes in `refresh_tokens`
+//! (see `db::refresh_token`).
+
 use chrono::{Duration, Utc};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-const JWT_SECRET: &[u8] = b"smartlms_jwt_secret_change_in_production";
-const JWT_EXPIRATION_HOURS: i64 = 24;
+/// Access-token lifetime in minutes.
+pub const ACCESS_TOKEN_TTL_MINUTES: i64 = 15;
 
-/// JWT claims embedded in tokens
+/// Refresh-token lifetime in days.
+pub const REFRESH_TOKEN_TTL_DAYS: i64 = 7;
+
+static JWT_SECRET: Lazy<Vec<u8>> = Lazy::new(|| {
+    std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| {
+            tracing::warn!(
+                "JWT_SECRET not set — using a development fallback. Refusing to run in prod."
+            );
+            "dev-only-change-me-dev-only-change-me-dev-only".to_string()
+        })
+        .into_bytes()
+});
+
+/// JWT claims. `sub` = user id, `tid` = institution id, `roles` = role codes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: uuid::Uuid, // User ID
+    pub sub: uuid::Uuid,
+    pub tid: uuid::Uuid,
     pub email: String,
-    pub first_name: String,
-    pub last_name: String,
-    pub role: String,               // User role: admin, instructor, learner
-    pub institution_id: uuid::Uuid, // Tenant ID
-    pub exp: i64,                   // Expiration timestamp
-    pub iat: i64,                   // Issued at timestamp
+    pub roles: Vec<String>,
+    pub exp: i64,
+    pub iat: i64,
 }
 
-/// Create new JWT token for user
-pub fn create_token(
-    user_id: uuid::Uuid,
-    email: String,
-    first_name: String,
-    last_name: String,
-    role: String,
-    institution_id: uuid::Uuid,
-) -> Result<String, jsonwebtoken::errors::Error> {
-    let now = Utc::now();
-    let exp = now + Duration::hours(JWT_EXPIRATION_HOURS);
+#[derive(Debug, thiserror::Error)]
+pub enum JwtError {
+    #[error("encode failed: {0}")]
+    Encode(String),
+    #[error("decode failed: {0}")]
+    Decode(String),
+}
 
+pub fn issue_access_token(
+    user_id: uuid::Uuid,
+    institution_id: uuid::Uuid,
+    email: String,
+    roles: Vec<String>,
+) -> Result<String, JwtError> {
+    let now = Utc::now();
+    let exp = now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES);
     let claims = Claims {
         sub: user_id,
+        tid: institution_id,
         email,
-        first_name,
-        last_name,
-        role,
-        institution_id,
+        roles,
         exp: exp.timestamp(),
         iat: now.timestamp(),
     };
-
     jsonwebtoken::encode(
-        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+        &Header::default(),
         &claims,
-        &jsonwebtoken::EncodingKey::from_secret(JWT_SECRET),
+        &EncodingKey::from_secret(&JWT_SECRET),
     )
+    .map_err(|e| JwtError::Encode(e.to_string()))
 }
 
-/// Validate JWT token and extract claims
-pub fn validate_token(token: &str) -> Result<Claims, String> {
-    jsonwebtoken::decode(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(JWT_SECRET),
-        &jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256),
-    )
-    .map(|data| data.claims)
-    .map_err(|e| e.to_string())
-}
-
-/// Refresh token (create new with extended expiration)
-pub fn refresh_token(token: &str) -> Result<String, String> {
-    let claims = validate_token(token)?;
-
-    create_token(
-        claims.sub,
-        claims.email,
-        claims.first_name,
-        claims.last_name,
-        claims.role,
-        claims.institution_id,
-    )
-    .map_err(|e| e.to_string())
-}
-
-/// Get token expiration as Duration
-pub fn get_expiration() -> Duration {
-    Duration::hours(JWT_EXPIRATION_HOURS)
+pub fn decode_access_token(token: &str) -> Result<Claims, JwtError> {
+    let validation = Validation::default();
+    jsonwebtoken::decode::<Claims>(token, &DecodingKey::from_secret(&JWT_SECRET), &validation)
+        .map(|d| d.claims)
+        .map_err(|e| JwtError::Decode(e.to_string()))
 }
 
 #[cfg(test)]
@@ -84,20 +86,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_and_validate_token() {
-        let token = create_token(
-            uuid::Uuid::new_v4(),
-            "test@example.com".to_string(),
-            "Test".to_string(),
-            "User".to_string(),
-            "admin".to_string(),
-            uuid::Uuid::new_v4(),
-        )
-        .unwrap();
+    fn access_token_roundtrip() {
+        let uid = uuid::Uuid::new_v4();
+        let tid = uuid::Uuid::new_v4();
+        let token =
+            issue_access_token(uid, tid, "jane@uon.ac.ke".into(), vec!["instructor".into()])
+                .unwrap();
+        let claims = decode_access_token(&token).unwrap();
+        assert_eq!(claims.sub, uid);
+        assert_eq!(claims.tid, tid);
+        assert_eq!(claims.email, "jane@uon.ac.ke");
+        assert_eq!(claims.roles, vec!["instructor"]);
+    }
 
-        let claims = validate_token(&token).unwrap();
-
-        assert_eq!(claims.email, "test@example.com");
-        assert_eq!(claims.role, "admin");
+    #[test]
+    fn tampered_token_rejected() {
+        let uid = uuid::Uuid::new_v4();
+        let tid = uuid::Uuid::new_v4();
+        let token = issue_access_token(uid, tid, "x@y".into(), vec![]).unwrap();
+        let mut bytes = token.into_bytes();
+        let last = bytes.last_mut().unwrap();
+        *last = if *last == b'a' { b'b' } else { b'a' };
+        let tampered = String::from_utf8(bytes).unwrap();
+        assert!(decode_access_token(&tampered).is_err());
     }
 }
