@@ -1,131 +1,240 @@
-// Authentication service - login, registration, password management
-use crate::models::user::{LoginRequest, LoginResponse, RegisterRequest, User};
-use crate::services::jwt;
-use bcrypt::{hash, verify, DEFAULT_COST};
+//! Auth flows: register / login / refresh / logout.
+//!
+//! Each flow takes the per-institution `PgPool` from `InstitutionCtx`, never
+//! the master pool — so cross-tenant data access is architecturally
+//! impossible (master ref §2).
+
+use chrono::{Duration, Utc};
+use rand::{rngs::OsRng, RngCore};
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
-/// Login user with email and password
-pub async fn login(pool: &PgPool, req: &LoginRequest) -> Result<Option<LoginResponse>, String> {
-    // Find user by email
-    let user = crate::db::user::find_by_email(pool, &req.email)
-        .await
-        .map_err(|e| e.to_string())?;
+use crate::db;
+use crate::models::auth::{LoginRequest, RefreshRequest, RegisterRequest, TokenResponse};
+use crate::models::user::{RoleCode, UserWithRoles};
+use crate::services::jwt::{self, ACCESS_TOKEN_TTL_MINUTES, REFRESH_TOKEN_TTL_DAYS};
+use crate::services::password;
 
-    let user = match user {
-        Some(u) => u,
-        None => return Ok(None), // Invalid credentials
-    };
-
-    // Verify password
-    if !verify(&req.password, &user.password_hash).map_err(|e| e.to_string())? {
-        return Ok(None); // Invalid credentials
-    }
-
-    // Create JWT token
-    let token = jwt::create_token(
-        user.id,
-        user.email.clone(),
-        user.first_name.clone(),
-        user.last_name.clone(),
-        user.role.clone(),
-        uuid::Uuid::new_v4(), // TODO: Get from institution context
-    )
-    .map_err(|e| e.to_string())?;
-
-    let expires_in = jwt::get_expiration().num_seconds();
-
-    Ok(Some(LoginResponse {
-        token,
-        user,
-        expires_in,
-    }))
+#[derive(Debug, thiserror::Error)]
+pub enum AuthError {
+    #[error("email already registered")]
+    EmailTaken,
+    #[error("invalid credentials")]
+    InvalidCredentials,
+    #[error("account is locked — try again later")]
+    AccountLocked,
+    #[error("account is disabled")]
+    AccountDisabled,
+    #[error("refresh token invalid or expired")]
+    InvalidRefreshToken,
+    #[error("database error: {0}")]
+    Db(#[from] sqlx::Error),
+    #[error("password error: {0}")]
+    Password(#[from] password::PasswordError),
+    #[error("jwt error: {0}")]
+    Jwt(#[from] jwt::JwtError),
 }
 
-/// Register new user
-pub async fn register(pool: &PgPool, req: &RegisterRequest) -> Result<User, String> {
-    // Check if email already exists
-    if crate::db::user::find_by_email(pool, &req.email)
-        .await
-        .map_err(|e| e.to_string())?
-        .is_some()
-    {
-        return Err("Email already registered".to_string());
+/// Context passed from the HTTP layer — the request's IP and User-Agent for
+/// the refresh_tokens row. Thin struct so tests can build one without
+/// pulling an axum::Request.
+#[derive(Debug, Default, Clone)]
+pub struct SessionMeta {
+    pub user_agent: Option<String>,
+    pub ip: Option<std::net::IpAddr>,
+}
+
+/// SHA-256 of an opaque refresh token. The plaintext token is returned to
+/// the client; only the hash is persisted (master ref §8 layer 3).
+fn hash_refresh(token: &str) -> String {
+    let mut h = Sha256::new();
+    h.update(token.as_bytes());
+    hex_encode(&h.finalize())
+}
+
+fn generate_refresh_token() -> String {
+    let mut buf = [0u8; 32];
+    OsRng.fill_bytes(&mut buf);
+    hex_encode(&buf)
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8] = b"0123456789abcdef";
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push(HEX[(b >> 4) as usize] as char);
+        s.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    s
+}
+
+/// Register a new user in the current institution. First user gets the
+/// `admin` role; subsequent registrants default to `learner`. Admins can
+/// re-assign roles via the /users admin endpoints (Phase 1 PR #55).
+pub async fn register(
+    pool: &PgPool,
+    institution_id: uuid::Uuid,
+    req: RegisterRequest,
+    meta: SessionMeta,
+) -> Result<TokenResponse, AuthError> {
+    if db::user::email_exists(pool, &req.email).await? {
+        return Err(AuthError::EmailTaken);
     }
 
-    // Hash password
-    let password_hash = hash(&req.password, DEFAULT_COST).map_err(|e| e.to_string())?;
-
-    // Create user
-    let user = crate::db::user::create(
+    let password_hash = password::hash_password(&req.password)?;
+    let user = db::user::create(
         pool,
         &req.email,
-        &password_hash,
+        Some(&password_hash),
         &req.first_name,
         &req.last_name,
-        &req.role,
+    )
+    .await?;
+
+    // First user in an institution gets 'admin'; everyone else gets 'learner'.
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")
+        .fetch_one(pool)
+        .await?;
+    let initial_role = if user_count == 1 {
+        RoleCode::Admin
+    } else {
+        RoleCode::Learner
+    };
+    db::role::assign(pool, user.id, initial_role, None).await?;
+
+    issue_token_pair(
+        pool,
+        institution_id,
+        user,
+        vec![initial_role.as_str().to_string()],
+        meta,
     )
     .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(user)
 }
 
-/// Change password
-pub async fn change_password(
+pub async fn login(
     pool: &PgPool,
-    user_id: uuid::Uuid,
-    old_password: &str,
-    new_password: &str,
-) -> Result<bool, String> {
-    // Get user
-    let user = crate::db::user::find_by_id(pool, user_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or("User not found")?;
+    institution_id: uuid::Uuid,
+    req: LoginRequest,
+    meta: SessionMeta,
+) -> Result<TokenResponse, AuthError> {
+    let record = db::user::find_by_email(pool, &req.email)
+        .await?
+        .ok_or(AuthError::InvalidCredentials)?;
 
-    // Verify old password
-    if !verify(old_password, &user.password_hash).map_err(|e| e.to_string())? {
-        return Err("Invalid current password".to_string());
+    if !record.user.is_active {
+        return Err(AuthError::AccountDisabled);
+    }
+    if let Some(locked_until) = record.locked_until {
+        if locked_until > Utc::now() {
+            return Err(AuthError::AccountLocked);
+        }
     }
 
-    // Hash new password
-    let new_hash = hash(new_password, DEFAULT_COST).map_err(|e| e.to_string())?;
-
-    // Update password
-    crate::db::user::update_password(pool, user_id, &new_hash)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(true)
-}
-
-/// Request password reset (generate reset token)
-pub async fn request_password_reset(pool: &PgPool, email: &str) -> Result<Option<String>, String> {
-    let user = crate::db::user::find_by_email(pool, email)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if user.is_none() {
-        // Don't reveal if email exists
-        return Ok(None);
+    let hash = record
+        .password_hash
+        .as_deref()
+        .ok_or(AuthError::InvalidCredentials)?;
+    if password::verify_password(&req.password, hash).is_err() {
+        db::user::record_failed_login(pool, record.user.id).await?;
+        return Err(AuthError::InvalidCredentials);
     }
 
-    // Generate reset token (in production, store in DB with expiration)
-    let reset_token = uuid::Uuid::new_v4().to_string();
-
-    // TODO: Store token in DB with expiration
-
-    Ok(Some(reset_token))
+    db::user::record_successful_login(pool, record.user.id).await?;
+    let roles = db::role::roles_for_user(pool, record.user.id).await?;
+    issue_token_pair(pool, institution_id, record.user, roles, meta).await
 }
 
-/// Reset password with token
-pub async fn reset_password(
+pub async fn refresh(
     pool: &PgPool,
-    token: &str,
-    new_password: &str,
-) -> Result<bool, String> {
-    // TODO: Validate token from DB
-    // TODO: Look up user by token, verify expiration
+    institution_id: uuid::Uuid,
+    req: RefreshRequest,
+    meta: SessionMeta,
+) -> Result<TokenResponse, AuthError> {
+    let hash = hash_refresh(&req.refresh_token);
+    let stored = db::refresh_token::find_active(pool, &hash)
+        .await?
+        .ok_or(AuthError::InvalidRefreshToken)?;
 
-    Err("Not implemented".to_string())
+    let record = db::user::find_by_id(pool, stored.user_id)
+        .await?
+        .ok_or(AuthError::InvalidRefreshToken)?;
+    if !record.user.is_active {
+        return Err(AuthError::AccountDisabled);
+    }
+
+    let roles = db::role::roles_for_user(pool, record.user.id).await?;
+
+    // Rotate: issue new pair, revoke old token linked to new one.
+    let pair = issue_token_pair(pool, institution_id, record.user, roles, meta).await?;
+    // The new refresh token id isn't returned from issue_token_pair; re-look it up.
+    let new_hash = hash_refresh(&pair.refresh_token);
+    let new_stored = db::refresh_token::find_active(pool, &new_hash).await?;
+    db::refresh_token::revoke(pool, stored.id, new_stored.map(|s| s.id)).await?;
+    Ok(pair)
+}
+
+pub async fn logout(pool: &PgPool, refresh_token: &str) -> Result<(), AuthError> {
+    let hash = hash_refresh(refresh_token);
+    if let Some(stored) = db::refresh_token::find_active(pool, &hash).await? {
+        db::refresh_token::revoke(pool, stored.id, None).await?;
+    }
+    Ok(())
+}
+
+pub async fn logout_everywhere(pool: &PgPool, user_id: uuid::Uuid) -> Result<u64, AuthError> {
+    Ok(db::refresh_token::revoke_all_for_user(pool, user_id).await?)
+}
+
+async fn issue_token_pair(
+    pool: &PgPool,
+    institution_id: uuid::Uuid,
+    user: crate::models::user::User,
+    roles: Vec<String>,
+    meta: SessionMeta,
+) -> Result<TokenResponse, AuthError> {
+    let access =
+        jwt::issue_access_token(user.id, institution_id, user.email.clone(), roles.clone())?;
+    let refresh = generate_refresh_token();
+    let refresh_hash = hash_refresh(&refresh);
+    let expires = Utc::now() + Duration::days(REFRESH_TOKEN_TTL_DAYS);
+    db::refresh_token::issue(
+        pool,
+        user.id,
+        &refresh_hash,
+        expires,
+        meta.user_agent.as_deref(),
+        meta.ip,
+    )
+    .await?;
+
+    Ok(TokenResponse {
+        access_token: access,
+        refresh_token: refresh,
+        token_type: "Bearer",
+        expires_in: ACCESS_TOKEN_TTL_MINUTES * 60,
+        user: UserWithRoles { user, roles },
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hashes_are_stable_and_hex() {
+        let h1 = hash_refresh("abc");
+        let h2 = hash_refresh("abc");
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64);
+        assert!(h1.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn generated_tokens_differ() {
+        let a = generate_refresh_token();
+        let b = generate_refresh_token();
+        assert_ne!(a, b);
+        assert_eq!(a.len(), 64);
+    }
 }

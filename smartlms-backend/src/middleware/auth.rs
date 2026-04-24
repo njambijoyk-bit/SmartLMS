@@ -1,76 +1,97 @@
-// Authentication middleware - validates JWT tokens on protected routes
-use crate::models::user::User;
-use crate::services::auth::jwt;
+//! JWT auth middleware.
+//!
+//! Verifies the `Authorization: Bearer <token>` header, decodes the JWT,
+//! cross-checks the `tid` claim against the current `InstitutionCtx`, and
+//! injects `AuthUser` into the request's extensions. Handlers that want
+//! auth take `Extension<AuthUser>`; handlers that are intentionally public
+//! (login, register, /health) just don't.
+//!
+//! Cross-institution token replay is rejected: a token issued by institution
+//! A presented against institution B returns 401.
+
 use axum::{
     body::Body,
-    extract::{Request, State},
+    extract::Request,
     http::{header::AUTHORIZATION, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
+    Json,
 };
+use serde_json::json;
 
-pub type AuthUser = User;
+use crate::models::user::RoleCode;
+use crate::services::jwt;
+use crate::tenant::InstitutionCtx;
 
-/// Auth middleware - validates Bearer token and extracts user
-pub async fn auth_middleware(
-    State(state): State<crate::tenant::RouterState>,
-    mut request: Request<Body>,
-    next: Next,
-) -> Response {
-    // Skip auth for public routes
-    let path = request.uri().path();
-    if is_public_route(path) {
-        return next.run(request).await;
+/// The decoded-and-verified identity of the caller. Injected by
+/// `auth_middleware` so handlers can take `Extension<AuthUser>`.
+#[derive(Debug, Clone)]
+pub struct AuthUser {
+    pub id: uuid::Uuid,
+    pub institution_id: uuid::Uuid,
+    pub email: String,
+    pub roles: Vec<String>,
+}
+
+impl AuthUser {
+    pub fn has_role(&self, role: RoleCode) -> bool {
+        self.roles.iter().any(|r| r == role.as_str())
     }
 
-    // Extract Authorization header
-    let auth_header = request
-        .headers()
-        .get(AUTHORIZATION)
-        .and_then(|h| h.to_str().ok());
+    pub fn is_admin(&self) -> bool {
+        self.has_role(RoleCode::Admin)
+    }
+}
 
-    let token = auth_header
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .or_else(|| auth_header);
+/// Requires a valid JWT whose `tid` matches the current `InstitutionCtx`.
+/// Returns 401 on any failure — no information about why (master ref §8).
+pub async fn require_auth(mut request: Request<Body>, next: Next) -> Response {
+    let token = match bearer_token(&request) {
+        Some(t) => t,
+        None => return unauthorized(),
+    };
 
-    // Validate token and get user
-    if let Some(token_str) = token {
-        match jwt::validate_token(token_str) {
-            Ok(claims) => {
-                // Create minimal user from JWT claims
-                let user = User {
-                    id: claims.sub,
-                    email: claims.email,
-                    password_hash: String::new(), // Don't expose in request
-                    first_name: claims.first_name,
-                    last_name: claims.last_name,
-                    role: claims.role,
-                };
-                request.extensions_mut().insert(user);
-            }
-            Err(e) => {
-                tracing::warn!("JWT validation failed: {}", e);
-            }
-        }
+    let claims = match jwt::decode_access_token(token) {
+        Ok(c) => c,
+        Err(_) => return unauthorized(),
+    };
+
+    // Cross-tenant defence: if a tenant context was resolved by the tenant
+    // middleware, the token's `tid` MUST match. If no tenant context exists
+    // (unknown host), reject — authenticated endpoints must be tenant-scoped.
+    let ctx = match request.extensions().get::<InstitutionCtx>() {
+        Some(ctx) => ctx.clone(),
+        None => return unauthorized(),
+    };
+    if claims.tid != ctx.id {
+        return unauthorized();
     }
 
+    let user = AuthUser {
+        id: claims.sub,
+        institution_id: claims.tid,
+        email: claims.email,
+        roles: claims.roles,
+    };
+    request.extensions_mut().insert(user);
     next.run(request).await
 }
 
-/// Check if route is public (no auth required)
-fn is_public_route(path: &str) -> bool {
-    matches!(
-        path,
-        "/" | "/health" | "/api/auth/login" | "/api/auth/register" | "/api/institutions/init"
-    )
+fn bearer_token(request: &Request<Body>) -> Option<&str> {
+    request
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| {
+            s.strip_prefix("Bearer ")
+                .or_else(|| s.strip_prefix("bearer "))
+        })
 }
 
-pub mod axum_extract {
-    use super::AuthUser;
-    use axum::extract::Extension;
-
-    /// Extension extractor for authenticated user
-    pub async fn auth_user(Extension(user): Extension<AuthUser>) -> AuthUser {
-        user
-    }
+fn unauthorized() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": "unauthorized" })),
+    )
+        .into_response()
 }

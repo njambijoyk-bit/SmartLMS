@@ -1,19 +1,11 @@
-// Database module - DB operations
-pub mod abac;
-pub mod assessment;
-pub mod attendance;
-pub mod backup;
-pub mod communication;
-pub mod course;
-pub mod course_group;
-pub mod institution;
-pub mod iot;
-pub mod live;
-pub mod user;
-pub mod parents_alumni;
+//! Database access layer.
 
-pub use communication::*;
-pub use institution::*;
-pub use iot::*;
-pub use user::*;
-pub use parents_alumni::*;
+pub mod assessment;
+pub mod course;
+pub mod enrollment;
+pub mod institution;
+pub mod module_db;
+pub mod question;
+pub mod refresh_token;
+pub mod role;
+pub mod user;

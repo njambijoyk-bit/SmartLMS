@@ -1,216 +1,147 @@
-// Institution onboarding service - signup, setup wizard, sandbox
-use crate::models::institution::{CreateInstitutionRequest, Institution};
-use crate::tenant::{InstitutionConfig, PlanTier, QuotaLimits};
-use chrono::{Duration, Utc};
+//! Institution onboarding — self-service signup + provisioning.
+//!
+//! Creates an `institutions` row in the master DB, optionally a
+//! `domain_map` entry for custom domains, and returns the host the new
+//! admin should register against. The institution's tables (users, roles,
+//! refresh_tokens, audit_log) are created lazily on first
+//! `/api/auth/register` call against the new tenant — the migration file
+//! `migrations_institution/001_users_and_rbac.sql` is idempotent so this
+//! is safe. A dedicated operator CLI for pre-provisioning a tenant DB
+//! lands in a follow-up.
+
 use sqlx::PgPool;
 
-/// Onboarding step tracking
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct OnboardingStep {
-    pub step: i32,
-    pub completed: bool,
-    pub data: serde_json::Value,
+use crate::db;
+use crate::models::institution::Institution;
+use crate::models::onboarding::{SignupRequest, SignupResponse};
+use crate::tenant::RouterState;
+
+#[derive(Debug, thiserror::Error)]
+pub enum OnboardingError {
+    #[error("slug already taken")]
+    SlugTaken,
+    #[error("custom domain already taken")]
+    DomainTaken,
+    #[error("database error: {0}")]
+    Db(#[from] sqlx::Error),
 }
 
-/// Complete onboarding state for an institution
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct OnboardingState {
-    pub institution_id: uuid::Uuid,
-    pub current_step: i32,
-    pub steps: Vec<OnboardingStep>,
-    pub started_at: chrono::DateTime<Utc>,
-    pub expires_at: chrono::DateTime<Utc>,
-    pub is_sandbox: bool,
+/// Default host format for new tenants without a custom domain.
+fn smartlms_host(slug: &str) -> String {
+    format!("{slug}.smartlms.io")
 }
 
-impl OnboardingState {
-    pub fn new(institution_id: uuid::Uuid, is_sandbox: bool) -> Self {
-        let now = Utc::now();
-        let expiry = if is_sandbox {
-            now + Duration::days(14) // 14-day sandbox
-        } else {
-            now + Duration::days(30) // 30 days for production
-        };
+fn plan_tier_code(tier: crate::tenant::PlanTier) -> &'static str {
+    match tier {
+        crate::tenant::PlanTier::Starter => "starter",
+        crate::tenant::PlanTier::Growth => "growth",
+        crate::tenant::PlanTier::Enterprise => "enterprise",
+    }
+}
 
-        Self {
-            institution_id,
-            current_step: 1,
-            steps: vec![
-                OnboardingStep {
-                    step: 1,
-                    completed: false,
-                    data: serde_json::json!({}),
-                },
-                OnboardingStep {
-                    step: 2,
-                    completed: false,
-                    data: serde_json::json!({}),
-                },
-                OnboardingStep {
-                    step: 3,
-                    completed: false,
-                    data: serde_json::json!({}),
-                },
-                OnboardingStep {
-                    step: 4,
-                    completed: false,
-                    data: serde_json::json!({}),
-                },
-                OnboardingStep {
-                    step: 5,
-                    completed: false,
-                    data: serde_json::json!({}),
-                },
-            ],
-            started_at: now,
-            expires_at: expiry,
-            is_sandbox,
+/// Create a new institution. Runs inside a single transaction so a partial
+/// failure (e.g. domain_map insert) rolls back the institution row.
+pub async fn signup(
+    state: &RouterState,
+    req: SignupRequest,
+) -> Result<SignupResponse, OnboardingError> {
+    let pool: &PgPool = &state.master_pool;
+
+    if db::institution::find_by_slug(pool, &req.slug)
+        .await?
+        .is_some()
+    {
+        return Err(OnboardingError::SlugTaken);
+    }
+    if let Some(domain) = req.custom_domain.as_deref() {
+        if db::institution::find_by_domain(pool, domain)
+            .await?
+            .is_some()
+        {
+            return Err(OnboardingError::DomainTaken);
         }
     }
 
-    /// Check if onboarding is expired
-    pub fn is_expired(&self) -> bool {
-        Utc::now() > self.expires_at
+    let id = uuid::Uuid::new_v4();
+    let now = chrono::Utc::now();
+    let plan_tier = req.plan_tier.map(plan_tier_code).unwrap_or("starter");
+
+    let mut tx = pool.begin().await?;
+
+    sqlx::query(
+        "INSERT INTO institutions (id, slug, name, domain, plan_tier, is_active, created_at, updated_at) \
+         VALUES ($1, $2, $3, $4, $5, true, $6, $6)",
+    )
+    .bind(id)
+    .bind(&req.slug)
+    .bind(&req.name)
+    .bind(&req.custom_domain)
+    .bind(plan_tier)
+    .bind(now)
+    .execute(&mut *tx)
+    .await?;
+
+    if let Some(domain) = req.custom_domain.as_deref() {
+        sqlx::query(
+            "INSERT INTO domain_map (host, slug, institution_id) VALUES ($1, $2, $3) \
+             ON CONFLICT (host) DO NOTHING",
+        )
+        .bind(domain)
+        .bind(&req.slug)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
     }
 
-    /// Get progress percentage
-    pub fn progress(&self) -> f32 {
-        let completed = self.steps.iter().filter(|s| s.completed).count() as f32;
-        (completed / self.steps.len() as f32) * 100.0
-    }
-}
+    tx.commit().await?;
 
-/// Onboarding step definitions (for documentation/API)
-pub const ONBOARDING_STEPS: &[&str] = &[
-    "Basic Info",   // Name, slug, type
-    "Admin User",   // Create first admin
-    "Database",     // Configure DB connection
-    " Branding",    // Logo, colors, domain
-    "Verification", // Email verification, license key
-];
-
-/// Create new institution during signup
-pub async fn create_institution(
-    pool: &PgPool,
-    req: &CreateInstitutionRequest,
-    is_sandbox: bool,
-) -> Result<Institution, String> {
-    // Check slug uniqueness
-    if crate::db::institution::find_by_slug(pool, &req.slug)
-        .await
-        .map_err(|e| e.to_string())?
-        .is_some()
-    {
-        return Err("Institution slug already taken".to_string());
-    }
-
-    // Create with default config based on plan
-    let (plan, quotas) = if is_sandbox {
-        (Some(PlanTier::Starter), Some(QuotaLimits::default()))
-    } else {
-        (req.plan_tier, None)
-    };
-
-    let institution = crate::db::institution::create(pool, req)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Note: In production, you'd also provision the per-institution database here
-
-    Ok(Institution {
-        id: institution.id,
-        slug: institution.slug,
-        name: institution.name,
-        domain: institution.domain,
-        database_url: institution.database_url,
+    let institution = Institution {
+        id,
+        slug: req.slug.clone(),
+        name: req.name.clone(),
+        domain: req.custom_domain.clone(),
+        database_url: None,
         config: None,
-        plan_tier: plan,
-        quotas,
+        plan_tier: req.plan_tier,
+        quotas: None,
         license_key: None,
         is_active: true,
-        created_at: institution.created_at,
-        updated_at: institution.updated_at,
+        created_at: now,
+        updated_at: now,
+    };
+
+    // Warm the domain_map so custom domains resolve immediately on the next
+    // request without a cache-miss Postgres query.
+    if let Some(domain) = req.custom_domain.as_deref() {
+        state
+            .domain_map
+            .insert(domain.to_string(), req.slug.clone());
+    }
+
+    let admin_host = req
+        .custom_domain
+        .clone()
+        .unwrap_or_else(|| smartlms_host(&req.slug));
+
+    Ok(SignupResponse {
+        institution,
+        admin_host: admin_host.clone(),
+        next_steps: vec![
+            format!("POST https://{admin_host}/api/auth/register with the admin credentials"),
+            "The first registrant in a new institution is automatically granted the `admin` role"
+                .to_string(),
+            "Switch to the admin host (Host header) to access /api/users/me and future admin endpoints"
+                .to_string(),
+        ],
     })
 }
 
-/// Initialize onboarding for new institution
-pub async fn init_onboarding(
+/// Public list view of institutions (master-DB level). Scoped to active
+/// rows — soft-deleted tenants are excluded.
+pub async fn list_active(
     pool: &PgPool,
-    institution_id: uuid::Uuid,
-    is_sandbox: bool,
-) -> Result<OnboardingState, String> {
-    let state = OnboardingState::new(institution_id, is_sandbox);
-
-    // Store in DB (implementation depends on your schema)
-    // For now, return the state
-    Ok(state)
-}
-
-/// Get onboarding state
-pub async fn get_onboarding_state(
-    pool: &PgPool,
-    institution_id: uuid::Uuid,
-) -> Result<Option<OnboardingState>, String> {
-    // TODO: Query from DB
-    Ok(None)
-}
-
-/// Complete an onboarding step
-pub async fn complete_step(
-    pool: &PgPool,
-    institution_id: uuid::Uuid,
-    step: i32,
-    data: serde_json::Value,
-) -> Result<OnboardingState, String> {
-    // TODO: Update in DB
-    // For now, return placeholder
-    Err("Not implemented".to_string())
-}
-
-/// Generate sample data for sandbox
-pub async fn generate_sandbox_data(
-    pool: &PgPool,
-    institution_id: uuid::Uuid,
-) -> Result<(), String> {
-    // TODO: Create sample courses, users, assignments for demo purposes
-    Ok(())
-}
-
-/// Validate institution slug (alphanumeric + hyphens)
-pub fn validate_slug(slug: &str) -> Result<(), String> {
-    if slug.len() < 3 || slug.len() > 50 {
-        return Err("Slug must be 3-50 characters".to_string());
-    }
-
-    if !slug.chars().all(|c| c.is_alphanumeric() || c == '-') {
-        return Err("Slug can only contain letters, numbers, and hyphens".to_string());
-    }
-
-    if slug.chars().next().unwrap().is_numeric() {
-        return Err("Slug cannot start with a number".to_string());
-    }
-
-    Ok(())
-}
-
-/// Check if sandbox has expired and apply restrictions
-pub fn check_sandbox_status(state: &OnboardingState) -> SandboxStatus {
-    if state.is_expired() {
-        return SandboxStatus::Expired;
-    }
-
-    let days_remaining = (state.expires_at - Utc::now()).num_days();
-
-    if days_remaining <= 3 {
-        SandboxStatus::ExpiringSoon(days_remaining as i32)
-    } else {
-        SandboxStatus::Active(days_remaining as i32)
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum SandboxStatus {
-    Active(i32),       // Days remaining
-    ExpiringSoon(i32), // Days until expiry
-    Expired,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Institution>, i64), sqlx::Error> {
+    db::institution::list(pool, page, per_page).await
 }

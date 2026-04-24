@@ -1,281 +1,252 @@
-// Courses API routes
-use crate::models::course::*;
-use crate::services::courses as course_service;
-use crate::tenant::InstitutionCtx;
+//! /courses endpoints.
+//!
+//! All routes require a valid JWT (the tenant middleware runs first, then
+//! `require_auth` cross-checks the token's institution claim). Role
+//! enforcement is performed by `services::course`.
+
 use axum::{
-    extract::{Extension, Json, Path, Query, State},
+    extract::{Extension, Path, Query},
     http::StatusCode,
-    response::IntoResponse,
-    routing::{delete, get, patch, post, put},
-    Router,
+    middleware,
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use validator::Validate;
+
+use crate::middleware::auth::{require_auth, AuthUser};
+use crate::models::course::{
+    CreateCourseRequest, CreateLessonRequest, CreateModuleRequest, UpdateCourseRequest,
+};
+use crate::services::course::{self, CourseError};
+use crate::tenant::InstitutionCtx;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/", get(list_courses).post(create_course))
+        .route(
+            "/:id",
+            get(get_course).patch(update_course).delete(archive_course),
+        )
+        .route("/:id/modules", get(list_modules).post(create_module))
+        .route(
+            "/:id/modules/:module_id/lessons",
+            get(list_lessons).post(create_lesson),
+        )
+        .route("/:id/enroll", post(enroll))
+        .route("/:id/drop", post(drop_course))
+        .route("/:id/lessons/:lesson_id/complete", post(complete_lesson))
+        .route("/:id/enrollments", get(list_course_enrollments))
+        .route_layer(middleware::from_fn(require_auth))
+}
 
 #[derive(Debug, Deserialize)]
-pub struct ListCoursesQuery {
+pub struct ListQuery {
     pub page: Option<i64>,
     pub per_page: Option<i64>,
-    pub category: Option<String>,
-    pub search: Option<String>,
 }
 
-/// List courses
-pub async fn list_courses(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Query(query): Query<ListCoursesQuery>,
-) -> Result<Json<CourseListResponse>, (StatusCode, String)> {
-    let page = query.page.unwrap_or(1);
-    let per_page = query.per_page.unwrap_or(20).min(100);
+#[derive(Debug, Serialize)]
+pub struct CourseListResponse<T> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
 
-    let response = if let Some(search) = query.search {
-        course_service::search_courses(&ctx.db_pool, &search, page, per_page).await
-    } else {
-        course_service::list_courses(
-            &ctx.db_pool,
+async fn list_courses(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Query(q): Query<ListQuery>,
+) -> Response {
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(20).clamp(1, 100);
+    match course::list_courses(&ctx.db_pool, &user, page, per_page).await {
+        Ok((items, total)) => Json(CourseListResponse {
+            items,
+            total,
             page,
             per_page,
-            query.category.as_deref(),
-            None,
-            None,
-        )
-        .await
+        })
+        .into_response(),
+        Err(e) => map_error(e),
     }
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
-
-    Ok(Json(response))
 }
 
-/// Get course detail
-pub async fn get_course(
+async fn create_course(
     Extension(ctx): Extension<InstitutionCtx>,
-    Path(course_id): Path<uuid::Uuid>,
-) -> Result<Json<CourseDetailResponse>, (StatusCode, String)> {
-    let detail = course_service::get_course_detail(&ctx.db_pool, course_id)
-        .await
-        .map_err(|e| (StatusCode::NOT_FOUND, e))?;
-    Ok(Json(detail))
-}
-
-/// Create course (instructor/admin only)
-pub async fn create_course(
-    Extension(ctx): Extension<InstitutionCtx>,
-    State(pool): State<sqlx::PgPool>,
+    Extension(user): Extension<AuthUser>,
     Json(req): Json<CreateCourseRequest>,
-) -> Result<Json<Course>, (StatusCode, String)> {
-    // Check permission - for now use first user as instructor
-    let course = course_service::create_course(&ctx.db_pool, ctx.id, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(course))
+) -> Response {
+    if let Err(e) = req.validate() {
+        return bad_request(e);
+    }
+    match course::create_course(&ctx.db_pool, &user, req).await {
+        Ok(c) => (StatusCode::CREATED, Json(c)).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Update course
-pub async fn update_course(
+async fn get_course(
     Extension(ctx): Extension<InstitutionCtx>,
-    Path(course_id): Path<uuid::Uuid>,
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<uuid::Uuid>,
+) -> Response {
+    match course::get_course(&ctx.db_pool, &user, id).await {
+        Ok(c) => Json(c).into_response(),
+        Err(e) => map_error(e),
+    }
+}
+
+async fn update_course(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<uuid::Uuid>,
     Json(req): Json<UpdateCourseRequest>,
-) -> Result<Json<Course>, (StatusCode, String)> {
-    let course = course_service::update_course(&ctx.db_pool, course_id, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(course))
+) -> Response {
+    if let Err(e) = req.validate() {
+        return bad_request(e);
+    }
+    match course::update_course(&ctx.db_pool, &user, id, req).await {
+        Ok(c) => Json(c).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Publish course
-pub async fn publish_course(
+async fn archive_course(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<uuid::Uuid>,
+) -> Response {
+    match course::archive_course(&ctx.db_pool, &user, id).await {
+        Ok(_) => (StatusCode::NO_CONTENT, ()).into_response(),
+        Err(e) => map_error(e),
+    }
+}
+
+async fn list_modules(
     Extension(ctx): Extension<InstitutionCtx>,
     Path(course_id): Path<uuid::Uuid>,
-) -> Result<Json<Course>, (StatusCode, String)> {
-    let course = course_service::publish_course(&ctx.db_pool, course_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(course))
+) -> Response {
+    match course::list_modules(&ctx.db_pool, course_id).await {
+        Ok(items) => Json(items).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Enroll in course
-pub async fn enroll(
+async fn create_module(
     Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
     Path(course_id): Path<uuid::Uuid>,
-) -> Result<Json<Enrollment>, (StatusCode, String)> {
-    let enrollment = course_service::enroll_user(&ctx.db_pool, ctx.id, course_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(enrollment))
-}
-
-/// Get course progress
-pub async fn get_progress(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(course_id): Path<uuid::Uuid>,
-) -> Result<Json<CourseProgress>, (StatusCode, String)> {
-    let progress = course_service::get_progress(&ctx.db_pool, ctx.id, course_id)
-        .await
-        .map_err(|e| (StatusCode::NOT_FOUND, e))?;
-    Ok(Json(progress))
-}
-
-/// Create module
-pub async fn create_module(
-    Extension(ctx): Extension<InstitutionCtx>,
     Json(req): Json<CreateModuleRequest>,
-) -> Result<Json<Module>, (StatusCode, String)> {
-    let module = course_service::create_module(&ctx.db_pool, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(module))
+) -> Response {
+    if let Err(e) = req.validate() {
+        return bad_request(e);
+    }
+    match course::create_module(&ctx.db_pool, &user, course_id, req).await {
+        Ok(m) => (StatusCode::CREATED, Json(m)).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Create lesson
-pub async fn create_lesson(
+async fn list_lessons(
     Extension(ctx): Extension<InstitutionCtx>,
+    Path((_course_id, module_id)): Path<(uuid::Uuid, uuid::Uuid)>,
+) -> Response {
+    match course::list_lessons(&ctx.db_pool, module_id).await {
+        Ok(items) => Json(items).into_response(),
+        Err(e) => map_error(e),
+    }
+}
+
+async fn create_lesson(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Path((course_id, module_id)): Path<(uuid::Uuid, uuid::Uuid)>,
     Json(req): Json<CreateLessonRequest>,
-) -> Result<Json<Lesson>, (StatusCode, String)> {
-    let lesson = course_service::create_lesson(&ctx.db_pool, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(lesson))
+) -> Response {
+    if let Err(e) = req.validate() {
+        return bad_request(e);
+    }
+    match course::create_lesson(&ctx.db_pool, &user, course_id, module_id, req).await {
+        Ok(l) => (StatusCode::CREATED, Json(l)).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Mark lesson complete
-pub async fn complete_lesson(
+async fn enroll(
     Extension(ctx): Extension<InstitutionCtx>,
-    Path(lesson_id): Path<uuid::Uuid>,
-) -> Result<Json<CourseProgress>, (StatusCode, String)> {
-    let progress = course_service::complete_lesson(&ctx.db_pool, ctx.id, lesson_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(progress))
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<uuid::Uuid>,
+) -> Response {
+    match course::enroll_self(&ctx.db_pool, &user, id).await {
+        Ok(e) => (StatusCode::CREATED, Json(e)).into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Delete course
-pub async fn delete_course(
+async fn drop_course(
     Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<uuid::Uuid>,
+) -> Response {
+    match course::drop_self(&ctx.db_pool, &user, id).await {
+        Ok(_) => (StatusCode::NO_CONTENT, ()).into_response(),
+        Err(e) => map_error(e),
+    }
+}
+
+async fn complete_lesson(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
+    Path((course_id, lesson_id)): Path<(uuid::Uuid, uuid::Uuid)>,
+) -> Response {
+    match course::complete_lesson(&ctx.db_pool, &user, course_id, lesson_id).await {
+        Ok(pct) => Json(json!({ "progress_pct": pct })).into_response(),
+        Err(e) => map_error(e),
+    }
+}
+
+async fn list_course_enrollments(
+    Extension(ctx): Extension<InstitutionCtx>,
+    Extension(user): Extension<AuthUser>,
     Path(course_id): Path<uuid::Uuid>,
-) -> Result<(), (StatusCode, String)> {
-    course_service::delete_course(&ctx.db_pool, course_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(())
+    Query(q): Query<ListQuery>,
+) -> Response {
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).clamp(1, 200);
+    match course::list_course_enrollments(&ctx.db_pool, &user, course_id, page, per_page).await {
+        Ok((items, total)) => Json(CourseListResponse {
+            items,
+            total,
+            page,
+            per_page,
+        })
+        .into_response(),
+        Err(e) => map_error(e),
+    }
 }
 
-/// Update module
-pub async fn update_module(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(module_id): Path<uuid::Uuid>,
-    Json(req): Json<UpdateModuleRequest>,
-) -> Result<Json<Module>, (StatusCode, String)> {
-    let module = course_service::update_module(&ctx.db_pool, module_id, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(module))
+fn bad_request<E: std::fmt::Display>(e: E) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": "validation_failed", "detail": e.to_string() })),
+    )
+        .into_response()
 }
 
-/// Delete module
-pub async fn delete_module(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(module_id): Path<uuid::Uuid>,
-) -> Result<(), (StatusCode, String)> {
-    course_service::delete_module(&ctx.db_pool, module_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(())
-}
-
-/// Update lesson
-pub async fn update_lesson(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(lesson_id): Path<uuid::Uuid>,
-    Json(req): Json<UpdateLessonRequest>,
-) -> Result<Json<Lesson>, (StatusCode, String)> {
-    let lesson = course_service::update_lesson(&ctx.db_pool, lesson_id, &req)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(lesson))
-}
-
-/// Delete lesson
-pub async fn delete_lesson(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(lesson_id): Path<uuid::Uuid>,
-) -> Result<(), (StatusCode, String)> {
-    course_service::delete_lesson(&ctx.db_pool, lesson_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(())
-}
-
-/// Reorder modules
-pub async fn reorder_modules(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Json(req): Json<ReorderItemsRequest>,
-) -> Result<(), (StatusCode, String)> {
-    course_service::reorder_modules(&ctx.db_pool, &req.items)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(())
-}
-
-/// Reorder lessons
-pub async fn reorder_lessons(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Json(req): Json<ReorderItemsRequest>,
-) -> Result<(), (StatusCode, String)> {
-    course_service::reorder_lessons(&ctx.db_pool, &req.items)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(())
-}
-
-/// Get instructor's courses
-pub async fn get_instructor_courses(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Query(query): Query<ListCoursesQuery>,
-) -> Result<Json<CourseListResponse>, (StatusCode, String)> {
-    let page = query.page.unwrap_or(1);
-    let per_page = query.per_page.unwrap_or(20).min(100);
-
-    let response = course_service::get_instructor_courses(&ctx.db_pool, ctx.id, page, per_page)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
-
-    Ok(Json(response))
-}
-
-/// Archive course
-pub async fn archive_course(
-    Extension(ctx): Extension<InstitutionCtx>,
-    Path(course_id): Path<uuid::Uuid>,
-) -> Result<Json<Course>, (StatusCode, String)> {
-    let course = course_service::archive_course(&ctx.db_pool, course_id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(course))
-}
-
-/// Create courses router
-pub fn courses_router() -> Router {
-    Router::new()
-        // Public routes
-        .route("/", get(list_courses))
-        .route("/:id", get(get_course))
-        // Instructor/Admin routes
-        .route("/", post(create_course))
-        .route("/instructor", get(get_instructor_courses))
-        .route("/:id", put(update_course))
-        .route("/:id", delete(delete_course))
-        .route("/:id/publish", post(publish_course))
-        .route("/:id/archive", post(archive_course))
-        .route("/:id/enroll", post(enroll))
-        .route("/:id/progress", get(get_progress))
-        // Module routes
-        .route("/modules", post(create_module))
-        .route("/modules/reorder", patch(reorder_modules))
-        .route("/modules/:id", put(update_module))
-        .route("/modules/:id", delete(delete_module))
-        // Lesson routes
-        .route("/lessons", post(create_lesson))
-        .route("/lessons/reorder", patch(reorder_lessons))
-        .route("/lessons/:id", put(update_lesson))
-        .route("/lessons/:id", delete(delete_lesson))
-        .route("/lessons/:id/complete", post(complete_lesson))
+fn map_error(e: CourseError) -> Response {
+    let (status, code) = match &e {
+        CourseError::NotFound => (StatusCode::NOT_FOUND, "not_found"),
+        CourseError::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
+        CourseError::SlugTaken => (StatusCode::CONFLICT, "slug_taken"),
+        CourseError::NotPublished => (StatusCode::CONFLICT, "not_published"),
+        CourseError::Db(err) => {
+            tracing::error!(error = %err, "course db error");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
+        }
+    };
+    (status, Json(json!({ "error": code }))).into_response()
 }

@@ -1,8 +1,9 @@
 use axum::{http::StatusCode, routing::get, Json, Router};
 use serde_json::json;
+use smartlms_backend::tenant::RouterState;
 use std::net::SocketAddr;
 use tower_http::{compression::CompressionLayer, cors::Any, trace::TraceLayer};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -10,50 +11,77 @@ async fn main() {
     init_logging();
     info!("Starting SmartLMS Engine v0.2.0");
 
-    // Initialize master DB pool from environment
+    // ------------------------------------------------------------------
+    // Master DB pool — source of truth for institutions/domain_map/licences.
+    // ------------------------------------------------------------------
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://smartlms:smartlms@localhost:5432/smartlms".to_string());
 
     let master_pool = match sqlx::PgPool::connect(&database_url).await {
         Ok(pool) => {
-            info!("Connected to database");
+            info!("Connected to master database");
             pool
         }
         Err(e) => {
-            tracing::warn!("Database not available ({}). Running without DB.", e);
-            // In production this would be fatal; in dev allow startup for testing
-            // For now we proceed so the server starts and routes are reachable
-            let pool =
-                sqlx::PgPool::connect("postgres://smartlms:smartlms@localhost:5432/smartlms")
-                    .await
-                    .ok();
-            // If no DB, health check will report degraded
-            match pool {
-                Some(p) => p,
-                None => {
-                    tracing::error!("Cannot connect to database — exiting.");
-                    std::process::exit(1);
-                }
-            }
+            tracing::error!("Cannot connect to master database ({}). Exiting.", e);
+            std::process::exit(1);
         }
     };
 
-    // Suppress unused warning in current stub — pool will be passed to handlers
-    let _ = master_pool;
+    // ------------------------------------------------------------------
+    // Optional Redis cache — used on DashMap miss in the tenant router.
+    // ------------------------------------------------------------------
+    let router_state = match std::env::var("REDIS_URL").ok() {
+        Some(url) if !url.is_empty() => match redis::Client::open(url.as_str()) {
+            Ok(client) => match redis::aio::ConnectionManager::new(client).await {
+                Ok(conn) => {
+                    info!("Connected to Redis ({})", url);
+                    RouterState::with_redis(master_pool.clone(), conn)
+                }
+                Err(e) => {
+                    warn!(
+                        "Redis connect failed ({}); falling back to in-process cache only",
+                        e
+                    );
+                    RouterState::new(master_pool.clone())
+                }
+            },
+            Err(e) => {
+                warn!("Invalid REDIS_URL ({}); using in-process cache only", e);
+                RouterState::new(master_pool.clone())
+            }
+        },
+        _ => {
+            info!("REDIS_URL not set — using in-process tenant cache only");
+            RouterState::new(master_pool.clone())
+        }
+    };
 
-    // Build the router
-    let api_router = smartlms_backend::api::create_api_router();
+    // ------------------------------------------------------------------
+    // Router
+    // ------------------------------------------------------------------
+    let api_router = smartlms_backend::api::create_api_router(router_state.clone());
+
+    // Warm the domain_map from the master DB so custom domains resolve
+    // without a first-request cache miss. If the table is missing (first boot,
+    // no migrations yet) this is a soft failure.
+    if let Err(e) = warm_domain_map(&router_state).await {
+        warn!("Could not warm domain_map: {}", e);
+    }
 
     let app = Router::new()
-        // Root
         .route("/", get(root_handler))
-        // Health check
         .route("/health", get(health_handler))
-        // Readiness probe (checks DB)
-        .route("/ready", get(|| async { StatusCode::OK }))
-        // Mount all API routes under /api
+        .route("/ready", get(ready_handler))
         .nest("/api", api_router)
-        // Middleware
+        // Tenant middleware runs first — resolves Host header → InstitutionCtx
+        // and injects it as an Extension on every request. Handlers that
+        // declare `Extension<InstitutionCtx>` will find it there; requests
+        // for unknown hosts simply have no extension set.
+        .layer(axum::middleware::from_fn_with_state(
+            router_state.clone(),
+            smartlms_backend::middleware::tenant_middleware,
+        ))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(
@@ -75,6 +103,24 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+/// Pre-populate RouterState.domain_map from the master DB so custom-domain
+/// resolution is O(1) from the first request onwards. Uses a runtime-checked
+/// query so it compiles even when the DB schema hasn't been migrated yet.
+async fn warm_domain_map(state: &RouterState) -> Result<(), sqlx::Error> {
+    let rows: Vec<(String, String)> =
+        sqlx::query_as::<_, (String, String)>("SELECT host, slug FROM domain_map")
+            .fetch_all(&state.master_pool)
+            .await?;
+    for (host, slug) in rows {
+        state.domain_map.insert(host, slug);
+    }
+    info!(
+        "Warmed domain_map with {} custom domains",
+        state.domain_map.len()
+    );
+    Ok(())
+}
+
 async fn root_handler() -> Json<serde_json::Value> {
     Json(json!({
         "name": "SmartLMS Engine",
@@ -85,27 +131,11 @@ async fn root_handler() -> Json<serde_json::Value> {
 }
 
 async fn health_handler() -> Json<serde_json::Value> {
-    Json(json!({
-        "status": "healthy",
-        "services": {
-            "auth": "up",
-            "courses": "up",
-            "assessments": "up",
-            "live": "up",
-            "attendance": "up",
-            "analytics": "up",
-            "automation": "up",
-            "gamification": "up",
-            "ml": "up",
-            "backup": "up",
-            "clearance": "up",
-            "timetable": "up",
-            "wellbeing": "up",
-            "peer_review": "up",
-            "portfolio": "up",
-            "research": "up",
-        }
-    }))
+    Json(json!({ "status": "healthy" }))
+}
+
+async fn ready_handler() -> StatusCode {
+    StatusCode::OK
 }
 
 fn init_logging() {
